@@ -235,8 +235,7 @@ function CreateNewGoogleSheet() {
 
   // =========================================================================
   // 6. USER INTERFACE & AUTOMATIC REDIRECTION
-  // =========================================================================
-
+  // ================            
   // SpreadsheetApp.getUi(): Retrieves the User Interface (UI) environment 
   // of the active spreadsheet, enabling alerts, custom menus, and dialog windows.
   //REF.: https://developers.google.com/apps-script/reference/base/ui
