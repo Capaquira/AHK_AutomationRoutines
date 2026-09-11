@@ -77,3 +77,57 @@ function formatNaturalList(items) {
   const initialItems = items.slice(0, -1).join(', ');
   return `${initialItems} and ${lastItem}`;
 }
+
+/**
+ * Extrae y retorna un Set de identificadores de servicios confirmados en minúsculas
+ * evaluando exactamente el mismo criterio del rango 64-95.
+ * @returns {Set<string>} Conjunto con las claves de servicios confirmados.
+ */
+function getConfirmedOperationsList() {
+  const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+
+  const startRow = 64;
+  const numRows = 95 - 64 + 1;
+  // Col B (índice 0), Col E confirmación (índice 3), Col F especificación (índice 4)
+  const data = activeSheet.getRange(startRow, 2, numRows, 5).getValues(); 
+
+  const confirmedKeys = new Set();
+
+  for (let i = 0; i < data.length; i++) {
+    const descriptionRaw = String(data[i][0] || '').trim();
+    const isConfirmed = String(data[i][3] || '').trim().toLowerCase();
+    const specification = String(data[i][4] || '').trim();
+
+    if (isConfirmed !== 'yes') continue;
+    if (descriptionRaw.startsWith('-')) continue; // Ignorar subservicios
+
+    let description;
+    const descLower = descriptionRaw.toLowerCase();
+
+    if (
+      descLower.startsWith('reception') ||
+      descLower.startsWith('loading') ||
+      descLower.startsWith('stock inspection')
+    ) {
+      description = descriptionRaw;
+    } else {
+      description = descriptionRaw.split(' ')[0];
+    }
+
+    // Registrar descripciones confirmadas en minúsculas para comparaciones uniformes
+    confirmedKeys.add(descLower);
+    confirmedKeys.add(description.toLowerCase());
+
+    // Si tiene especificación (ej. Stand-alone, Reception, etc.) registrarla también
+    if (specification) {
+      specification.split(',').forEach(spec => {
+        confirmedKeys.add(spec.trim().toLowerCase());
+      });
+    }
+  }
+
+  return confirmedKeys;
+}
+
+
+
