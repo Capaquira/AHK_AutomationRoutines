@@ -12,7 +12,7 @@
  * @requires DESTINATION_FOLDER_ID - Valid Drive Folder ID with edit permissions.
  */
 
-function CreateNewGoogleSheet() {
+function CreateNewGoogleSheet(trafiguraFlag) {
 
   // =========================================================================
   // 1. READ DATA FROM CURRENT SHEET
@@ -108,7 +108,9 @@ function CreateNewGoogleSheet() {
     .setFontWeight('bold');
 
   //Creation of main input file
-  createClientReportSheets(new_google_sheet)
+    //To ensure default is 0 if not passed
+    var flag = (trafiguraFlag === 1)? 1:0;
+  createClientReportColumns(new_google_sheet, flag);
 
   // Then loop through confirmed operations and create extra sheets
   createOperationSheets(new_google_sheet);
@@ -132,7 +134,97 @@ function CreateNewGoogleSheet() {
   /************************************
    * MAIN OBS SHEET: OBSERVATIONS     *
    ************************************/
-  let obsSheet = new_google_sheet.insertSheet('Observations');
+
+  let obsSheet = new_google_sheet.insertSheet('Observations'); 
+  //REF: https://developers.google.com/apps-script/reference/spreadsheet/spreadsheet#insertsheetname
+
+  // ===== MAIN HEADER =====
+  // getRange(2, 2, 1, 5) → row 2, col 2 (B2), 1 row × 6 cols (B–F)
+  obsSheet.getRange(2, 2, 1, 5) //REF: https://developers.google.com/apps-script/reference/spreadsheet/sheet#getrangerow,-column,-numrows,-numcolumns
+    .merge() //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#merge
+    .setValue('OBSERVATIONS TAB') //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#setvaluevalue
+    .setFontSize(24) //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#setfontsizefontsize
+    .setFontWeight('bold') //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#setfontweightweight
+    .setHorizontalAlignment('center') //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#sethorizontalalignmentalignment
+    .setBackground('#fce8e6'); //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#setbackgroundcolor
+
+  // ===== SUB-HEADER =====
+  // getRange(3, 2, 1, 5) → row 3, col 2 (B3), 1 row × 6 cols (B–F)
+  obsSheet.getRange(3, 2, 1, 5)
+    .merge()
+    .setValue('UNITS TO LOOK INTO')
+    .setFontSize(12)
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setBackground('#fce8e6');
+
+  // ===== TABLE 1 =====
+  // Title → Duplicate Check
+  // getRange(5, 2, 1, 2) → row 5, col 2 (B5), 1 row × 2 cols (B–C)
+  obsSheet.getRange(5, 2, 1, 2)
+    .merge()
+    .setValue('Duplicate Check')
+    .setFontSize(12)
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setBackground('#fce8e6');
+
+  // Set row height for row 5
+  obsSheet.setRowHeight(5, 60); 
+  //REF: https://developers.google.com/apps-script/reference/spreadsheet/sheet#setrowheightrow,-height
+
+  // Apply wrap text to all cells in row 5
+  obsSheet.getRange(5, 1, 1, obsSheet.getMaxColumns()).setWrap(true); 
+  //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#setwrapwrap
+
+  // Apply horizontal center to all cells in row 5
+  obsSheet.getRange(5, 1, 1, obsSheet.getMaxColumns()).setHorizontalAlignment('center'); 
+  //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#sethorizontalalignmentalignment
+
+  // Subtitle → Reception Duplicates
+  obsSheet.getRange(6, 2).setValue('Reception Duplicates').setBackground('#fce8e6');
+  obsSheet.getRange(7, 2).setValue('=if(B7="No duplicates","0",counta(B7:B))');
+  obsSheet.getRange(8, 2).setValue('=iferror(unique(filter(Client_Report_Reception!G:G,countif(Client_Report_Reception!G:G,Client_Report_Reception!G:G)>1)),"No Duplicates")');
+
+  // Subtitle → Loading Duplicates
+  obsSheet.getRange(6, 3).setValue('Loading Duplicates').setBackground('#fce8e6');
+  obsSheet.getRange(7, 3).setValue('=if(C7="No duplicates",0,counta(C7:C))');
+  obsSheet.getRange(8, 3).setValue('=iferror(unique(filter(Client_Report_Loading!G:G,countif(Client_Report_Loading!G:G,Client_Report_Loading!G:G)>1)),"No Duplicates")');
+
+  // ===== TABLE 2 =====
+  // Title → Units on the Ground - Received but NOT Loaded
+  obsSheet.getRange(5, 5).setValue('Units on the Ground - Received but NOT Loaded').setBackground('#fce8e6');
+  // Title → Mismatch Units - Units in Loading but NOT Reception
+  obsSheet.getRange(5, 6).setValue('Mismatch Units - Units in Loading but NOT Reception').setBackground('#fce8e6');
+
+  // Subtitle → Unit ID
+  // getRange(6, 5, 1, 2) → row 6, col 5 (E6), 1 row × 2 cols (E–F)
+  obsSheet.getRange(6, 5, 1, 2)
+    .merge()
+    .setValue('Unit ID')
+    .setFontSize(12)
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setBackground('#fce8e6');
+
+  // Formulas → Units not loaded
+  obsSheet.getRange(7, 5).setValue('=iferror(if(E7="No duplicates","0",counta(E7:E)),"No units not loaded")');
+  obsSheet.getRange(8, 5).setValue('=unique(filter(Client_Report_Loading!G3:G,countif(Client_Report_Loading!G3:G,Client_Report_Loading!G3:G)=0,Client_Report_Loading!G3:G<>""))');
+
+  // Formulas → Mismatch units
+  obsSheet.getRange(7, 6).setValue('=iferror(if(F7="No duplicates","0",counta(F7:F)),"No mismatch units")');
+  obsSheet.getRange(8, 6).setValue('=unique(filter(Client_Report_Reception!G3:G,countif(Client_Report_Reception!G3:G,Client_Report_Reception!G3:G)=0,Client_Report_Reception!G3:G<>""))');
+
+  // ===== GENERAL FORMATTING =====
+  // Applies to columns B–F (includes row 5 titles and all rows below)
+  for (let col = 2; col <= 6; col++) { //REF: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for
+    // col = 2 → B, col = 3 → C, col = 4 → D, col = 5 → E, col = 6 → F
+    obsSheet.setColumnWidth(col, 200); //REF: https://developers.google.com/apps-script/reference/spreadsheet/sheet#setcolumnwidthcolumn,-width
+    obsSheet.getRange(5, col, obsSheet.getMaxRows()-4, 1)
+      .setFontSize(12)
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+  }
 
   // =========================================================================
   // 6. APPLY DATA & FORMATTING (IN DEFINITIVE LOCATION)
