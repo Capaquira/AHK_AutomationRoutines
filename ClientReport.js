@@ -3,45 +3,25 @@
 /// Project: Template Generator – Client Report
 /// Summary: Builds the Client_Report sheet dynamically based on 
 ///          Service_Config definitions, applying Trafigura column 
-///          overrides when confirmed.
+///          overrides when confirmed and filtering by active services.
 /// ===============================================================
 
 /**
  * Builds the Client_Report sheet structure.
  * 
- * Official Documentation References:
- * - SpreadsheetApp: https://developers.google.com/apps-script/reference/spreadsheet/spreadsheet-app
- * - Sheet Class: https://developers.google.com/apps-script/reference/spreadsheet/sheet
- * - Range Class: https://developers.google.com/apps-script/reference/spreadsheet/range
- * - Filter Class: https://developers.google.com/apps-script/reference/spreadsheet/filter
- * 
  * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} new_google_sheet - Target spreadsheet instance.
  * @param {number} [trafiguraFlag=0] - 1 if Trafigura layout selected, 0 for standard.
  */
 function createClientReportColumns(new_google_sheet, trafiguraFlag) {
-  // -------------------------------------------------------------
-  // 1. SHEET INITIALIZATION
-  // Locate or create the target output sheet named 'Client_Report'.
-  // Docs: https://developers.google.com/apps-script/reference/spreadsheet/spreadsheet#getsheetbynamename
-  // Docs: https://developers.google.com/apps-script/reference/spreadsheet/spreadsheet#insertsheetsheetname
-  // -------------------------------------------------------------
   let clientReportSheet = new_google_sheet.getSheetByName('Client_Report');
   if (!clientReportSheet) {
     clientReportSheet = new_google_sheet.insertSheet('Client_Report');
   }
 
-  // Ensure trafiguraFlag is parsed as a clean integer (0 or 1)
   const flag = parseInt(trafiguraFlag || 0, 10);
   console.log("Generating Client_Report with TrafiguraFlag:", flag);
 
-  // -------------------------------------------------------------
-  // 2. HEADER ROW & COLUMN DIMENSION FORMATTING
-  // Sets row height, horizontal & vertical alignment, text wrapping,
-  // and standardized column widths.
-  // Docs: https://developers.google.com/apps-script/reference/spreadsheet/sheet#setrowheightrowposition,-height
-  // Docs: https://developers.google.com/apps-script/reference/spreadsheet/range#setwrapiswrap
-  // Docs: https://developers.google.com/apps-script/reference/spreadsheet/sheet#setcolumnwidthcolumnposition,-width
-  // -------------------------------------------------------------
+  // Formato de encabezado fila 1
   clientReportSheet.setRowHeight(1, 80);
   const maxColumns = clientReportSheet.getMaxColumns();
   clientReportSheet.getRange(1, 1, 1, maxColumns)
@@ -54,9 +34,7 @@ function createClientReportColumns(new_google_sheet, trafiguraFlag) {
   }
 
   // -------------------------------------------------------------
-  // 3. RETRIEVE CONFIGURATION & POPULATE COLUMNS
-  // Fetch dynamic column schemas from Service_Config and render
-  // headers, formulas, number/date formats, and alternating colors.
+  // CARGA DE CONFIGURACIÓN CON FILTRO DE SERVICIOS
   // -------------------------------------------------------------
   const mappings = loadServiceMappings(flag);
   const maxRows = clientReportSheet.getMaxRows();
@@ -64,8 +42,7 @@ function createClientReportColumns(new_google_sheet, trafiguraFlag) {
   let currentCol = 1;
 
   mappings.forEach(mapping => {
-    // Write the column title to Row 1
-    // Docs: https://developers.google.com/apps-script/reference/spreadsheet/range#setvaluevalue
+    // Encabezado Fila 1
     clientReportSheet.getRange(1, currentCol)
       .setValue(mapping.columnName)
       .setFontSize(10)
@@ -73,17 +50,13 @@ function createClientReportColumns(new_google_sheet, trafiguraFlag) {
       .setHorizontalAlignment("center")
       .setVerticalAlignment("middle");
 
-    // Clear Row 2 placeholder cell
+    // Fila 2 vacía o con fórmula
     clientReportSheet.getRange(2, currentCol).setValue("");
-
-    // Inject column formula if defined in the config
-    // Docs: https://developers.google.com/apps-script/reference/spreadsheet/range#setformulaformula
     if (mapping.formula) {
       clientReportSheet.getRange(2, currentCol).setFormula(mapping.formula);
     }
 
-    // Apply specific number/date formats across data rows (Row 3 downwards)
-    // Docs: https://developers.google.com/apps-script/reference/spreadsheet/range#setnumberformatnumberformat
+    // Formato de fechas o números en filas de datos
     if (maxRows > 2) {
       const dataRange = clientReportSheet.getRange(3, currentCol, maxRows - 2, 1);
       const dateType = mapping.dateType.toLowerCase();
@@ -95,8 +68,7 @@ function createClientReportColumns(new_google_sheet, trafiguraFlag) {
       }
     }
 
-    // Apply color palette: Red/White for Calculated fields, Gray/White for Standard fields
-    // Docs: https://developers.google.com/apps-script/reference/spreadsheet/range#setbackgroundscolor
+    // Colores de columna
     if (mapping.calcFlag === "Calculated") {
       clientReportSheet.getRange(1, currentCol, 2, 1).setBackground("#e06666");
       const altRows = maxRows - 3;
@@ -120,12 +92,7 @@ function createClientReportColumns(new_google_sheet, trafiguraFlag) {
     currentCol++;
   });
 
-  // -------------------------------------------------------------
-  // 4. AUTO-FILTER CREATION
-  // Re-creates the native spreadsheet filter across all used data rows.
-  // Docs: https://developers.google.com/apps-script/reference/spreadsheet/range#createfilter
-  // Docs: https://developers.google.com/apps-script/reference/spreadsheet/filter#remove
-  // -------------------------------------------------------------
+  // Filtro automático
   const lastColUsed = clientReportSheet.getLastColumn();
   const lastRowUsed = clientReportSheet.getLastRow();
 
@@ -139,21 +106,14 @@ function createClientReportColumns(new_google_sheet, trafiguraFlag) {
 }
 
 /**
- * Reads metadata configuration from the central Service_Config spreadsheet.
- * Selects Column B headers when Trafigura flag is active, defaulting to Column A.
+ * Reads metadata configuration from Service_Config.
+ * Filters columns against confirmed services from OperationSummary
+ * and prevents duplicate column names.
  * 
- * Official Documentation References:
- * - SpreadsheetApp.openByUrl: https://developers.google.com/apps-script/reference/spreadsheet/spreadsheet-app#openbyurlurl
- * - Range.getValues: https://developers.google.com/apps-script/reference/spreadsheet/range#getvalues
- * 
- * @param {number} trafiguraFlag - 1 for Trafigura column headers (Col B), 0 for standard (Col A).
- * @returns {Array<Object>} Mapped column specifications.
+ * @param {number} trafiguraFlag - 1 for Col B, 0 for Col A.
+ * @returns {Array<Object>} Mappings list.
  */
 function loadServiceMappings(trafiguraFlag) {
-  // -------------------------------------------------------------
-  // 1. OPEN CONFIGURATION WORKBOOK & SHEET
-  // Access external central configuration document.
-  // -------------------------------------------------------------
   const configSS = SpreadsheetApp.openByUrl(
     "https://docs.google.com/spreadsheets/d/1FZo4hMpiJOM-cfFbC10Wb5Nug27T77wF/edit#gid=2107217982"
   );
@@ -166,43 +126,75 @@ function loadServiceMappings(trafiguraFlag) {
   const lastRow = configSheet.getLastRow();
   if (lastRow < 2) return [];
 
-  // -------------------------------------------------------------
-  // 2. FETCH CELL DATA RANGE (A2:L)
-  // Extract values in bulk into memory to avoid individual API calls.
-  // -------------------------------------------------------------
   const values = configSheet.getRange(2, 1, lastRow - 1, 12).getValues();
 
-  // -------------------------------------------------------------
-  // 3. PARSE & MAP ATTRIBUTES DYNAMICALLY
-  // Target index: 1 (Column B) for Trafigura, 0 (Column A) for Standard.
-  // -------------------------------------------------------------
+  // 1. Obtener la lista de servicios confirmados desde OperationSummary.gs
+  const confirmedServices = getConfirmedOperationsList();
+
+  // 2. Set para evitar duplicados de nombres de columnas
+  const seenColumnNames = new Set();
+
   const targetColIndex = (trafiguraFlag === 1) ? 1 : 0;
   const mappings = [];
 
   values.forEach(row => {
-    // Select column header by flag; fallback to Column A if Column B is blank
+    // Definir nombre de columna (Col B para Trafigura con respaldo en Col A, o Col A para estándar)
     let columnName = String(row[targetColIndex] || "").trim();
     if (trafiguraFlag === 1 && !columnName) {
       columnName = String(row[0] || "").trim();
     }
 
+    // -------------------------------------------------------------
+    // FILTRO 1: EVALUACIÓN DE SERVICIO (Columna F -> row[5])
+    // -------------------------------------------------------------
     const serviceClass = String(row[5] || "").trim();
-    const dateType     = String(row[7] || "").trim();
-    const calcFlag     = String(row[8] || "").trim();
-    const validation   = String(row[9] || "").trim();
-    const formula      = String(row[11] || "").trim();
+    const serviceClassLower = serviceClass.toLowerCase();
 
-    if (columnName) {
-      mappings.push({
-        columnName: columnName,
-        validation: validation,
-        serviceClass: serviceClass,
-        dateType: dateType,
-        formula: formula,
-        calcFlag: calcFlag
+    // Si tiene asignado un serviceClass específico (que no sea vacío ni "general")
+    if (serviceClassLower !== "" && serviceClassLower !== "general") {
+      // Admite celdas con servicios separados por comas (ej: "Sampling, Grading")
+      const definedServices = serviceClassLower.split(',').map(s => s.trim());
+      
+      // Comprobar si coincide con alguno de los servicios confirmados en OperationSummary
+      const isConfirmed = definedServices.some(svc => {
+        for (let confirmed of confirmedServices) {
+          if (confirmed.includes(svc) || svc.includes(confirmed)) {
+            return true;
+          }
+        }
+        return false;
       });
+
+      // Si el servicio no está confirmado en las filas 64-95, omitir columna
+      if (!isConfirmed) return;
     }
+
+    // -------------------------------------------------------------
+    // FILTRO 2: EVITAR NOMBRES VACÍOS O DUPLICADOS
+    // -------------------------------------------------------------
+    const colKey = columnName.toLowerCase();
+    if (!columnName || seenColumnNames.has(colKey)) {
+      return; // Salta si está vacío o si ya fue insertada una columna con ese nombre
+    }
+    seenColumnNames.add(colKey);
+
+    // Registro de especificación
+    mappings.push({
+      columnName: columnName,
+      validation: String(row[9] || "").trim(),
+      serviceClass: serviceClass,
+      dateType: String(row[7] || "").trim(),
+      formula: String(row[11] || "").trim(),
+      calcFlag: String(row[8] || "").trim()
+    });
   });
 
   return mappings;
 }
+
+
+// 1. Obtener la lista de servicios confirmados desde OperationSummary.gs
+  const confirmedServices = getConfirmedOperationsList();
+
+  // LINEA A AGREGAR:
+  console.log("Servicios confirmados detectados:", Array.from(confirmedServices));
