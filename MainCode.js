@@ -6,8 +6,9 @@
  * Workflow:
  * 1. Reads dynamic file name from current sheet (Cell B2).
  * 2. Instantiates a new Spreadsheet and moves it to the target directory.
- * 3. Formats default 'Export' tab with standard headers.
- * 4. Triggers a client-side JavaScript redirect via UI Modal.
+ * 3. Populates, formats, and structures all necessary tabs.
+ * 4. Dynamically sorts tabs (Fixed Start, Dynamic Middle, Fixed End).
+ * 5. Triggers a client-side JavaScript redirect via UI Modal.
  * 
  * @requires DESTINATION_FOLDER_ID - Valid Drive Folder ID with edit permissions.
  */
@@ -29,8 +30,7 @@ function CreateNewGoogleSheet(trafiguraFlag) {
   const new_template_name = current_google_sheet.getRange('B2').getValue();
 
   // Set up destination
-  const DESTINATION_FOLDER_ID = "1FvXBvi8yHsNWGTEuubZnCPsScFRklgXI";
-
+  const DESTINATION_FOLDER_ID = "1abEPExDsu_w4-VPLy5JVckZf59m42QvS";
 
   // =========================================================================
   // 2. CREATE AND MOVE FILE
@@ -91,12 +91,52 @@ function CreateNewGoogleSheet(trafiguraFlag) {
   drawings.forEach(drawing => drawing.remove());
 
   // =========================================================================
-  // 5. CREATE "Client_Summary" SHEET
+  // Sheet02. COPY VALIDATION SHEET
   // =========================================================================
 
-  // 1. Insert the new target sheet
-  // REF: https://developers.google.com/apps-script/reference/spreadsheet/spreadsheet#insertsheetsheetname
-  
+  const SOURCE_SPREADSHEET_ID = "11pgBEOENoeB8g0RxlNImbV5sGSL3v58S4LeRv-Mo3G0";
+  const sourceSpreadsheet = SpreadsheetApp.openById(SOURCE_SPREADSHEET_ID);
+  const sourceSheet = sourceSpreadsheet.getSheetByName("Validation");
+
+  let validationSheet = sourceSheet.copyTo(new_google_sheet);
+  validationSheet.setName("Validation");
+
+  // =========================================================================
+  // Sheet03. COPY MERGE LOG SHEET
+  // =========================================================================
+
+  const SOURCE_SPREADSHEET_ID2 = "1qktFxlaQvxHdiGoJrWKqVUB6orxGwWd4jfX6Mkq-8FM";
+  const sourceSpreadsheet2 = SpreadsheetApp.openById(SOURCE_SPREADSHEET_ID2);
+  const sourceSheet2 = sourceSpreadsheet2.getSheetByName("Merge Log");
+
+  let MergeLogSheet = sourceSheet2.copyTo(new_google_sheet);
+  MergeLogSheet.setName("Merge Log");
+
+  // =========================================================================
+  // Sheet04. CREATE OBSERVATION SHEET
+  // =========================================================================
+  createObservationsSheet(new_google_sheet);
+
+  // =========================================================================
+  // Sheet05. CREATE SUMMARY SHEETS
+  // =========================================================================
+
+  // Then loop through confirmed operations and create extra sheets
+  createOperationSheets(new_google_sheet);
+
+  // =========================================================================
+  // Sheet06. CREATE CLIENT REPORT SHEET
+  // =========================================================================
+
+  // Creation of main input file
+  // To ensure default is 0 if not passed
+  var flag = (trafiguraFlag === 1)? 1:0;
+  createClientReportColumns(new_google_sheet, flag);
+
+  // =========================================================================
+  // Sheet07. CREATE "Client_Summary" SHEET
+  // =========================================================================
+
   // Always create Client_Summary first
   let clientSheet = new_google_sheet.insertSheet('Client_Summary');
   const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -107,131 +147,68 @@ function CreateNewGoogleSheet(trafiguraFlag) {
     .setFontSize(22)
     .setFontWeight('bold');
 
-  //Creation of main input file
-    //To ensure default is 0 if not passed
-    var flag = (trafiguraFlag === 1)? 1:0;
-  createClientReportColumns(new_google_sheet, flag);
-
-  // Then loop through confirmed operations and create extra sheets
-  createOperationSheets(new_google_sheet);
-
   // =========================================================================
-  // 6. CREATE AND CONFIGURE VALIDATION SHEET (DYNAMIC VALIDATION DATA)
+  // Sheet08. COPY EXPORT SHEET
   // =========================================================================
 
-  const SOURCE_SPREADSHEET_ID = "11pgBEOENoeB8g0RxlNImbV5sGSL3v58S4LeRv-Mo3G0";
-  const sourceSpreadsheet = SpreadsheetApp.openById(SOURCE_SPREADSHEET_ID);
-  const sourceSheet = sourceSpreadsheet.getSheetByName("Validation");
+  const SOURCE_SPREADSHEET_ID3 = "1THcO95rN0tTvGLuVWvNP2WfinrE3Izz2R3L5U1a5H0A";
+  const sourceSpreadsheet3 = SpreadsheetApp.openById(SOURCE_SPREADSHEET_ID3);
+  const sourceSheet3 = sourceSpreadsheet3.getSheetByName("Export");
 
-  let validationSheet = sourceSheet.copyTo(new_google_sheet);
-  validationSheet.setName("Validation");
+  let ExportSheet = sourceSheet3.copyTo(new_google_sheet);
+  ExportSheet.setName("Export");
 
-  // Move the copied sheet before the last sheet
-  let totalSheets = new_google_sheet.getSheets().length;
-  new_google_sheet.setActiveSheet(validationSheet);
-  new_google_sheet.moveActiveSheet(totalSheets - 1);
- 
-  /************************************
-   * MAIN OBS SHEET: OBSERVATIONS     *
-   ************************************/
-
-  let obsSheet = new_google_sheet.insertSheet('Observations'); 
-  //REF: https://developers.google.com/apps-script/reference/spreadsheet/spreadsheet#insertsheetname
-
-  // ===== MAIN HEADER =====
-  // getRange(2, 2, 1, 5) → row 2, col 2 (B2), 1 row × 6 cols (B–F)
-  obsSheet.getRange(2, 2, 1, 5) //REF: https://developers.google.com/apps-script/reference/spreadsheet/sheet#getrangerow,-column,-numrows,-numcolumns
-    .merge() //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#merge
-    .setValue('OBSERVATIONS TAB') //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#setvaluevalue
-    .setFontSize(24) //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#setfontsizefontsize
-    .setFontWeight('bold') //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#setfontweightweight
-    .setHorizontalAlignment('center') //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#sethorizontalalignmentalignment
-    .setBackground('#fce8e6'); //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#setbackgroundcolor
-
-  // ===== SUB-HEADER =====
-  // getRange(3, 2, 1, 5) → row 3, col 2 (B3), 1 row × 6 cols (B–F)
-  obsSheet.getRange(3, 2, 1, 5)
-    .merge()
-    .setValue('UNITS TO LOOK INTO')
-    .setFontSize(12)
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center')
-    .setBackground('#fce8e6');
-
-  // ===== TABLE 1 =====
-  // Title → Duplicate Check
-  // getRange(5, 2, 1, 2) → row 5, col 2 (B5), 1 row × 2 cols (B–C)
-  obsSheet.getRange(5, 2, 1, 2)
-    .merge()
-    .setValue('Duplicate Check')
-    .setFontSize(12)
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center')
-    .setBackground('#fce8e6');
-
-  // Set row height for row 5
-  obsSheet.setRowHeight(5, 60); 
-  //REF: https://developers.google.com/apps-script/reference/spreadsheet/sheet#setrowheightrow,-height
-
-  // Apply wrap text to all cells in row 5
-  obsSheet.getRange(5, 1, 1, obsSheet.getMaxColumns()).setWrap(true); 
-  //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#setwrapwrap
-
-  // Apply horizontal center to all cells in row 5
-  obsSheet.getRange(5, 1, 1, obsSheet.getMaxColumns()).setHorizontalAlignment('center'); 
-  //REF: https://developers.google.com/apps-script/reference/spreadsheet/range#sethorizontalalignmentalignment
-
-  // Subtitle → Reception Duplicates
-  obsSheet.getRange(6, 2).setValue('Reception Duplicates').setBackground('#fce8e6');
-  obsSheet.getRange(7, 2).setValue('=if(B7="No duplicates","0",counta(B7:B))');
-  obsSheet.getRange(8, 2).setValue('=iferror(unique(filter(Client_Report_Reception!G:G,countif(Client_Report_Reception!G:G,Client_Report_Reception!G:G)>1)),"No Duplicates")');
-
-  // Subtitle → Loading Duplicates
-  obsSheet.getRange(6, 3).setValue('Loading Duplicates').setBackground('#fce8e6');
-  obsSheet.getRange(7, 3).setValue('=if(C7="No duplicates",0,counta(C7:C))');
-  obsSheet.getRange(8, 3).setValue('=iferror(unique(filter(Client_Report_Loading!G:G,countif(Client_Report_Loading!G:G,Client_Report_Loading!G:G)>1)),"No Duplicates")');
-
-  // ===== TABLE 2 =====
-  // Title → Units on the Ground - Received but NOT Loaded
-  obsSheet.getRange(5, 5).setValue('Units on the Ground - Received but NOT Loaded').setBackground('#fce8e6');
-  // Title → Mismatch Units - Units in Loading but NOT Reception
-  obsSheet.getRange(5, 6).setValue('Mismatch Units - Units in Loading but NOT Reception').setBackground('#fce8e6');
-
-  // Subtitle → Unit ID
-  // getRange(6, 5, 1, 2) → row 6, col 5 (E6), 1 row × 2 cols (E–F)
-  obsSheet.getRange(6, 5, 1, 2)
-    .merge()
-    .setValue('Unit ID')
-    .setFontSize(12)
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center')
-    .setBackground('#fce8e6');
-
-  // Formulas → Units not loaded
-  obsSheet.getRange(7, 5).setValue('=iferror(if(E7="No duplicates","0",counta(E7:E)),"No units not loaded")');
-  obsSheet.getRange(8, 5).setValue('=unique(filter(Client_Report_Loading!G3:G,countif(Client_Report_Loading!G3:G,Client_Report_Loading!G3:G)=0,Client_Report_Loading!G3:G<>""))');
-
-  // Formulas → Mismatch units
-  obsSheet.getRange(7, 6).setValue('=iferror(if(F7="No duplicates","0",counta(F7:F)),"No mismatch units")');
-  obsSheet.getRange(8, 6).setValue('=unique(filter(Client_Report_Reception!G3:G,countif(Client_Report_Reception!G3:G,Client_Report_Reception!G3:G)=0,Client_Report_Reception!G3:G<>""))');
-
-  // ===== GENERAL FORMATTING =====
-  // Applies to columns B–F (includes row 5 titles and all rows below)
-  for (let col = 2; col <= 6; col++) { //REF: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for
-    // col = 2 → B, col = 3 → C, col = 4 → D, col = 5 → E, col = 6 → F
-    obsSheet.setColumnWidth(col, 200); //REF: https://developers.google.com/apps-script/reference/spreadsheet/sheet#setcolumnwidthcolumn,-width
-    obsSheet.getRange(5, col, obsSheet.getMaxRows()-4, 1)
-      .setFontSize(12)
-      .setFontWeight('bold')
-      .setHorizontalAlignment('center')
+  // =========================================================================
+  // 5. CLEANUP DEFAULT SHEET
+  // =========================================================================
+  
+  // Delete default Sheet1 if there are other sheets available
+  const defaultTab = new_google_sheet.getSheets()[0];
+  if (new_google_sheet.getSheets().length > 1) {
+    new_google_sheet.deleteSheet(defaultTab);
   }
 
   // =========================================================================
-  // 6. APPLY DATA & FORMATTING (IN DEFINITIVE LOCATION)
+  // 6. DYNAMIC TAB SORTING (START, MIDDLE, END)
   // =========================================================================
-  const exportTab = new_google_sheet.getSheets()[0];
-  exportTab.setName('Export');
-  exportTab.getRange(1, 1, 1, 4).setValues([['ID', 'Date', 'Customer Name', 'Total Amount']]);
+  
+  const startSheets = ["Export", "Client_Summary", "Client_Report"];
+  const endSheets = ["Observations", "Merge Log", "Validation", copiedActiveSheet.getName()];
+  
+  let currentIndex = 1;
+
+  // Step A: Position the fixed start sheets in order
+  startSheets.forEach(sheetName => {
+    let sheet = new_google_sheet.getSheetByName(sheetName);
+    if (sheet) {
+      new_google_sheet.setActiveSheet(sheet);
+      new_google_sheet.moveActiveSheet(currentIndex);
+      currentIndex++;
+    }
+  });
+
+  // Step B: Automatically position any dynamically generated middle sheets
+  let allSheets = new_google_sheet.getSheets();
+  let middleSheets = allSheets.filter(sheet => {
+    let name = sheet.getName();
+    return !startSheets.includes(name) && !endSheets.includes(name);
+  });
+
+  middleSheets.forEach(sheet => {
+    new_google_sheet.setActiveSheet(sheet);
+    new_google_sheet.moveActiveSheet(currentIndex);
+    currentIndex++;
+  });
+
+  // Step C: Position the fixed end sheets in exact order
+  endSheets.forEach(sheetName => {
+    let sheet = new_google_sheet.getSheetByName(sheetName);
+    if (sheet) {
+      new_google_sheet.setActiveSheet(sheet);
+      new_google_sheet.moveActiveSheet(currentIndex);
+      currentIndex++;
+    }
+  });
 
   // Option: Flush changes to force immediate sync before opening URL
   SpreadsheetApp.flush();
@@ -242,12 +219,12 @@ function CreateNewGoogleSheet(trafiguraFlag) {
   Logger.log("File URL: " + new_google_sheet.getUrl());
 
   // =========================================================================
-  // 6. USER INTERFACE & AUTOMATIC REDIRECTION
+  // 7. USER INTERFACE & AUTOMATIC REDIRECTION
   // =========================================================================
 
   // SpreadsheetApp.getUi(): Retrieves the User Interface (UI) environment 
   // of the active spreadsheet, enabling alerts, custom menus, and dialog windows.
-  //REF.: https://developers.google.com/apps-script/reference/base/ui
+  // REF.: https://developers.google.com/apps-script/reference/base/ui
   const ui = SpreadsheetApp.getUi();
   
   // .getUrl(): A method of the Spreadsheet object that fetches the unique 
@@ -266,4 +243,6 @@ function CreateNewGoogleSheet(trafiguraFlag) {
   // ui.showModalDialog(userInterface, title): Renders the HTML pop-up window on screen,
   // temporarily focusing over the spreadsheet to execute the client-side redirection script.
   ui.showModalDialog(htmlOutput, 'Opening new template...');
+
+  
 }
