@@ -13,7 +13,7 @@
  * @requires DESTINATION_FOLDER_ID - Valid Drive Folder ID with edit permissions.
  */
 
-function CreateNewGoogleSheet(trafiguraFlag) {
+function CreateNewGoogleSheet(excelFlag) {
 
   // =========================================================================
   // 1. READ DATA FROM CURRENT SHEET
@@ -130,8 +130,15 @@ function CreateNewGoogleSheet(trafiguraFlag) {
 
   // Creation of main input file
   // To ensure default is 0 if not passed
-  var flag = (trafiguraFlag === 1)? 1:0;
-  createClientReportColumns(new_google_sheet, flag);
+
+  // Traf Flag
+  var flag_TR = new_template_name.toLowerCase().includes('trafigura') ? 1 : 0;
+
+  // Excel Flag
+  var flag_EX = (excelFlag === 1)? 1:0;
+
+  // Main funtion call
+  createClientReportColumns(new_google_sheet, flag_TR, flag_EX);
 
   // =========================================================================
   // Sheet07. CREATE "Client_Summary" SHEET
@@ -213,10 +220,14 @@ function CreateNewGoogleSheet(trafiguraFlag) {
   // Option: Flush changes to force immediate sync before opening URL
   SpreadsheetApp.flush();
 
-  // Logging execution details
+  // Logging execution details ON TERMINAL
   Logger.log("File Name: " + new_template_name);
   Logger.log("Destination Folder: " + targetFolder.getName());
   Logger.log("File URL: " + new_google_sheet.getUrl());
+
+  // ClientReport.gs ON FILE
+  // logGeneratedTemplate(new_template_name, new_google_sheet);
+  logGeneratedTemplate(new_template_name, new_google_sheet, flag_EX);
 
   // =========================================================================
   // 7. USER INTERFACE & AUTOMATIC REDIRECTION
@@ -229,20 +240,76 @@ function CreateNewGoogleSheet(trafiguraFlag) {
   
   // .getUrl(): A method of the Spreadsheet object that fetches the unique 
   // web address (URL) required to access the newly created file.
+
   const url = new_google_sheet.getUrl();
-  
+
+  const excelUrl =
+  "https://docs.google.com/spreadsheets/d/" +
+  new_google_sheet.getId() +
+  "/export?format=xlsx";
+    
   // HtmlService.createHtmlOutput(html): Interprets and builds client-side HTML/JavaScript code.
   // - 'window.open(url, "_blank")': Browser JavaScript command that opens the URL in a new tab.
   // - 'google.script.host.close()': Apps Script client API that automatically closes the modal dialog.
   // - setWidth() / setHeight(): Sets the pop-up window dimensions in pixels.
-  const htmlOutput = HtmlService
-    .createHtmlOutput('<script>window.open("' + url + '", "_blank"); google.script.host.close();</script>')
-    .setWidth(300)
-    .setHeight(80);
+  //const htmlOutput = HtmlService
+  //  .createHtmlOutput('<script>window.open("' + url + '", "_blank"); google.script.host.close();</script>')
+  //  .setWidth(300)
+  //  .setHeight(80);
     
   // ui.showModalDialog(userInterface, title): Renders the HTML pop-up window on screen,
   // temporarily focusing over the spreadsheet to execute the client-side redirection script.
-  ui.showModalDialog(htmlOutput, 'Opening new template...');
+  //ui.showModalDialog(htmlOutput, 'Opening new template...');
 
-  
+  // URL del archivo de log
+  const logUrl = "https://docs.google.com/spreadsheets/d/1Y8AVWTmiQDVUimgT4_OkpD6k3rT8Zm4AgyTVk6hGBu0/edit#gid=0";
+
+  // Valor por defecto para evitar errores en el HTML
+  let excelButton = '';
+
+  if (flag_EX === 1) {
+    excelButton = `
+      <p style="margin-top:20px;">Download the Excel version:</p>
+
+      <a href="${excelUrl}" target="_blank"
+        style="
+          display:inline-block;
+          padding:10px 20px;
+          background:#fbbc04;
+          color:#000;
+          text-decoration:none;
+          border-radius:4px;
+          font-weight:bold;
+          margin-bottom:10px;">
+        Download XLSX
+      </a>
+    `;
+  }
+
+  const htmlOutput = HtmlService.createHtmlOutput(`
+    <div style="text-align:center; font-family:Arial; padding:20px;">
+      
+      <h3>Open file</h3>
+      
+      <p>Click the button below to open the new template:</p>
+
+      <a href="${url}" target="_blank"
+        style="display:inline-block; padding:10px 20px; background:#4285f4; color:#fff; 
+              text-decoration:none; border-radius:4px; font-weight:bold; margin-bottom:10px;">
+        Open File
+      </a>
+
+      ${excelButton}
+
+      <p>Or check the log of generated templates:</p>
+      <a href="${logUrl}" target="_blank"
+        style="display:inline-block; padding:10px 20px; background:#34a853; color:#fff; 
+              text-decoration:none; border-radius:4px; font-weight:bold;">
+        View Log
+      </a>
+    </div>
+  `).setWidth(500).setHeight(400);
+
+  ui.showModalDialog(htmlOutput, 'Open file');
+
 }

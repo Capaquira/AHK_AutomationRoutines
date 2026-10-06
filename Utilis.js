@@ -1,20 +1,73 @@
-/**
- * Converts a text string to Title Case (capitalizes the first letter of each word).
- */
 
-function capitalizeWords(str) {
-  if (typeof str !== 'string' || !str) return str;
-  return str
-    .toLowerCase()
-    .split(' ')
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
+function getConfirmedOperationsSummary() {
+  const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+
+  const startRow = 64;
+  const numRows = 95 - 64 + 1;
+  const data = activeSheet.getRange(startRow, 2, numRows, 5).getValues(); 
+
+  const serviceMap = new Map(); // clave = Reception/Loading/Stand-alone, valor = lista de servicios
+
+  for (let i = 0; i < data.length; i++) {
+    const descriptionRaw = String(data[i][0] || '').trim();
+    const isConfirmed = String(data[i][3] || '').trim().toLowerCase();
+    const specification = String(data[i][4] || '').trim();
+
+    if (isConfirmed !== 'yes') continue;
+    if (descriptionRaw.startsWith('-')) continue; // ignorar subservicios
+
+    // Determinar si es servicio común o especial
+    let description;
+    if (
+      descriptionRaw.toLowerCase().startsWith('reception') ||
+      descriptionRaw.toLowerCase().startsWith('loading') ||
+      descriptionRaw.toLowerCase().startsWith('stock inspection')
+    ) {
+      description = descriptionRaw; // mantener completo
+    } else {
+      description = descriptionRaw.split(' ')[0]; // solo primera palabra
+    }
+
+    if (specification) {
+      specification.split(',').map(s => s.trim()).forEach(spec => {
+        const key = spec; // Reception, Loading, Stand-alone
+        if (!serviceMap.has(key)) {
+          serviceMap.set(key, new Set());
+        }
+        serviceMap.get(key).add(description);
+      });
+    } else {
+      if (!serviceMap.has(description)) {
+        serviceMap.set(description, new Set());
+      }
+    }
+  }
+
+  const results = [];
+  for (const [location, services] of serviceMap.entries()) {
+    if (location.toLowerCase() === 'stand-alone') {
+      services.forEach(s => results.push(s));
+    } else if (services.size > 0) {
+      const serviceList = [...services].join(' / ');
+      results.push(`${location} (${serviceList})`);
+    } else {
+      results.push(location);
+    }
+  }
+
+  // Evitar duplicados de Reception/Loading simples si ya existen con detalle
+  const hasReceptionDetail = results.some(r => r.startsWith('Reception ('));
+  const hasLoadingDetail = results.some(r => r.startsWith('Loading ('));
+
+  const filtered = results.filter(r => {
+    if (r === 'Reception' && hasReceptionDetail) return false;
+    if (r === 'Loading' && hasLoadingDetail) return false;
+    return true;
+  });
+
+  return formatNaturalList(filtered);
 }
 
-
-/**
- * Helper function to format array into natural grammar list.
- */
 function formatNaturalList(items) {
   if (!items || items.length === 0) return '';
   if (items.length === 1) return items[0];
@@ -25,86 +78,56 @@ function formatNaturalList(items) {
   return `${initialItems} and ${lastItem}`;
 }
 
-
 /**
- * Capitalizes the first letter of a string.
- * Example: "big bags" -> "Big bags"
- * 
- * @param {string} str - Input text string.
- * @return {string} String with the first character in uppercase.
+ * Extrae y retorna un Set de identificadores de servicios confirmados en minúsculas
+ * evaluando exactamente el mismo criterio del rango 64-95.
+ * @returns {Set<string>} Conjunto con las claves de servicios confirmados.
  */
-function capitalizeFirstLetter(str) {
-  if (!str) return '';
-  const trimmed = String(str).trim();
-  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-}
+function getConfirmedOperationsList() {
+  const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
 
+  const startRow = 64;
+  const numRows = 95 - 64 + 1;
+  // Col B (índice 0), Col E confirmación (índice 3), Col F especificación (índice 4)
+  const data = activeSheet.getRange(startRow, 2, numRows, 5).getValues(); 
 
-/**
- * Splits concatenated full names into an array of individual person names.
- * Supports line breaks, commas, 'and', or multi-word full name patterns.
- * 
- * @param {string} rawText - Input string (e.g., "Leslie Mbale Mofya Chilufya Theophilus Mweene Bright Bwalya")
- * @return {string[]} Array of individual full names.
- */
-function extractIndividualNames(rawText) {
-  if (!rawText) return [];
+  const confirmedKeys = new Set();
 
-  const text = String(rawText).trim();
+  for (let i = 0; i < data.length; i++) {
+    const descriptionRaw = String(data[i][0] || '').trim();
+    const isConfirmed = String(data[i][3] || '').trim().toLowerCase();
+    const specification = String(data[i][4] || '').trim();
 
-  // 1. If text contains explicit delimiters like commas, newlines, or ' and ', split directly
-  if (text.includes(',') || text.includes('\n') || text.toLowerCase().includes(' and ')) {
-    return text
-      .split(/,|\n|\s+and\s+/i)
-      .map(n => n.replace(/^@/, '').trim())
-      .filter(n => n.length > 0);
-  }
+    if (isConfirmed !== 'yes') continue;
+    if (descriptionRaw.startsWith('-')) continue; // Ignorar subservicios
 
-  // 2. Fallback: Parse 2-word pairs (FirstName LastName) from continuous name strings
-  const words = text.replace(/^@/, '').trim().split(/\s+/);
-  const names = [];
+    let description;
+    const descLower = descriptionRaw.toLowerCase();
 
-  for (let i = 0; i < words.length; i += 2) {
-    if (i + 1 < words.length) {
-      names.push(`${words[i]} ${words[i + 1]}`);
+    if (
+      descLower.startsWith('reception') ||
+      descLower.startsWith('loading') ||
+      descLower.startsWith('stock inspection')
+    ) {
+      description = descriptionRaw;
     } else {
-      names.push(words[i]); // Handle single remaining name if odd word count
+      description = descriptionRaw.split(' ')[0];
+    }
+
+    // Registrar descripciones confirmadas en minúsculas para comparaciones uniformes
+    confirmedKeys.add(descLower);
+    confirmedKeys.add(description.toLowerCase());
+
+    // Si tiene especificación (ej. Stand-alone, Reception, etc.) registrarla también
+    if (specification) {
+      specification.split(',').forEach(spec => {
+        confirmedKeys.add(spec.trim().toLowerCase());
+      });
     }
   }
 
-  return names;
+  return confirmedKeys;
 }
 
-/**
- * Extracts an existing email from string or infers a candidate corporate email address.
- * 
- * @param {string} input - Name or email string (e.g., "Leslie Mbale")
- * @param {string} domain - Corporate domain (e.g., "company.com")
- * @return {string|null} Evaluated email address.
- */
-function extractOrInferEmail(input, domain = "company.com") {
-  if (!input) return null;
 
-  const strInput = String(input).trim();
-
-  // 1. Check if string already contains a valid email address
-  const emailMatch = strInput.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-  if (emailMatch) {
-    return emailMatch[0];
-  }
-
-  // 2. Infer email format (firstname.lastname@domain.com)
-  const formattedName = strInput
-    .toLowerCase()
-    .replace(/^@/, '')
-    .replace(/[^a-z0-9\s]/g, '')
-    .trim()
-    .replace(/\s+/g, '.');
-
-  if (formattedName.length > 0) {
-    return `${formattedName}@${domain}`;
-  }
-
-  return null;
-}
 

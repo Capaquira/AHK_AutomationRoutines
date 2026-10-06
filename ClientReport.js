@@ -12,20 +12,26 @@
  * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} new_google_sheet - Target spreadsheet instance.
  * @param {number} [trafiguraFlag=0] - 1 if Trafigura layout selected, 0 for standard.
  */
-function createClientReportColumns(new_google_sheet, trafiguraFlag) {
+
+function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
+
   let clientReportSheet = new_google_sheet.getSheetByName('Client_Report');
   if (!clientReportSheet) {
     clientReportSheet = new_google_sheet.insertSheet('Client_Report');
   }
 
-  const flag = parseInt(trafiguraFlag || 0, 10);
-  console.log("Generating Client_Report with TrafiguraFlag:", flag);
+  const trafiguraFlag = parseInt(flag_TR || 0, 10);
+  const excelFlag = parseInt(flag_EX || 0, 10);
+  
+
+  console.log("Generating Client_Report with TrafiguraFlag:", trafiguraFlag, "| Excel Formula Set:",excelFlag);
 
   // Formato de encabezado fila 1
   clientReportSheet.setRowHeight(1, 80);
   const maxColumns = clientReportSheet.getMaxColumns();
   clientReportSheet.getRange(1, 1, 1, maxColumns)
     .setWrap(true)
+    .setFontColor('#ffffff')
     .setHorizontalAlignment("center")
     .setVerticalAlignment("middle");
 
@@ -36,7 +42,7 @@ function createClientReportColumns(new_google_sheet, trafiguraFlag) {
   // -------------------------------------------------------------
   // CARGA DE CONFIGURACIÓN CON FILTRO DE SERVICIOS
   // -------------------------------------------------------------
-  const mappings = loadServiceMappings(flag);
+  const mappings = loadServiceMappings(trafiguraFlag, excelFlag);
   const maxRows = clientReportSheet.getMaxRows();
 
   let currentCol = 1;
@@ -110,10 +116,11 @@ function createClientReportColumns(new_google_sheet, trafiguraFlag) {
  * Filters columns against confirmed services from OperationSummary
  * and prevents duplicate column names.
  * 
- * @param {number} trafiguraFlag - 1 for Col B, 0 for Col A.
+ * @param {number} trafiguraFlag - 1 for Trafigura headers (Col B), 0 for standard headers (Col A).
+ * @param {number} excelFlag - 1 for formula column M, 0 for formula column L.
  * @returns {Array<Object>} Mappings list.
  */
-function loadServiceMappings(trafiguraFlag) {
+function loadServiceMappings(trafiguraFlag, excelFlag) {
   const configSS = SpreadsheetApp.openByUrl(
     "https://docs.google.com/spreadsheets/d/1FZo4hMpiJOM-cfFbC10Wb5Nug27T77wF/edit#gid=2107217982"
   );
@@ -126,7 +133,7 @@ function loadServiceMappings(trafiguraFlag) {
   const lastRow = configSheet.getLastRow();
   if (lastRow < 2) return [];
 
-  const values = configSheet.getRange(2, 1, lastRow - 1, 12).getValues();
+  const values = configSheet.getRange(2, 1, lastRow - 1, 13).getValues();
 
   // 1. Obtener la lista de servicios confirmados desde OperationSummary.gs
   const confirmedServices = getConfirmedOperationsList();
@@ -135,6 +142,7 @@ function loadServiceMappings(trafiguraFlag) {
   const seenColumnNames = new Set();
 
   const targetColIndex = (trafiguraFlag === 1) ? 1 : 0;
+  const targetFormulaIndex = (excelFlag === 1) ? 12 : 11;
   const mappings = [];
 
   values.forEach(row => {
@@ -184,7 +192,7 @@ function loadServiceMappings(trafiguraFlag) {
       validation: String(row[9] || "").trim(),
       serviceClass: serviceClass,
       dateType: String(row[7] || "").trim(),
-      formula: String(row[11] || "").trim(),
+      formula: String(row[targetFormulaIndex] || "").trim(),
       calcFlag: String(row[8] || "").trim()
     });
   });
