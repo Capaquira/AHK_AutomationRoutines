@@ -1,10 +1,10 @@
 /**
- * Creates a new Google Sheet named from active cell B2, immediately moves it
+ * Creates a new Google Sheet named from active cell B3, immediately moves it
  * to a target Google Drive folder/Shared Drive, populates initial structure,
  * and seamlessly redirects the user via an HTML modal dialog.
  * 
  * Workflow:
- * 1. Reads dynamic file name from current sheet (Cell B2).
+ * 1. Reads dynamic file name from current sheet (Cell B3).
  * 2. Instantiates a new Spreadsheet and moves it to the target directory.
  * 3. Populates, formats, and structures all necessary tabs.
  * 4. Dynamically sorts tabs (Fixed Start, Dynamic Middle, Fixed End).
@@ -25,9 +25,9 @@ function CreateNewGoogleSheet(excelFlag) {
   // REF.: https://developers.google.com/apps-script/reference/spreadsheet/spreadsheet
   const current_google_sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
 
-  // getRange('B2'): Selects cell B2 within the active sheet.
-  // getValue(): Retrieves the text or numerical value inside cell B2 to use as the new file name.
-  const new_template_name = current_google_sheet.getRange('B2').getValue();
+  // getRange('B3'): Selects cell B3 within the active sheet.
+  // getValue(): Retrieves the text or numerical value inside cell B3 to use as the new file name.
+  const new_template_name = current_google_sheet.getRange('B3').getValue();
 
   // Set up destination
   const DESTINATION_FOLDER_ID = "1abEPExDsu_w4-VPLy5JVckZf59m42QvS";

@@ -22,9 +22,9 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
 
   const trafiguraFlag = parseInt(flag_TR || 0, 10);
   const excelFlag = parseInt(flag_EX || 0, 10);
-  
 
-  console.log("Generating Client_Report with TrafiguraFlag:", trafiguraFlag, "| Excel Formula Set:",excelFlag);
+
+  console.log("Generating Client_Report with TrafiguraFlag:", trafiguraFlag, "| Excel Formula Set:", excelFlag);
 
   // Formato de encabezado fila 1
   clientReportSheet.setRowHeight(1, 80);
@@ -152,17 +152,22 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
       columnName = String(row[0] || "").trim();
     }
 
+    const serviceClass = String(row[5] || "").trim();
+    if (serviceClass && serviceClass.toLowerCase() !== "general") {
+      columnName = `${serviceClass}_${columnName}`;
+    }
+
     // -------------------------------------------------------------
     // FILTRO 1: EVALUACIÓN DE SERVICIO (Columna F -> row[5])
     // -------------------------------------------------------------
-    const serviceClass = String(row[5] || "").trim();
+    //const serviceClass = String(row[5] || "").trim();
     const serviceClassLower = serviceClass.toLowerCase();
 
     // Si tiene asignado un serviceClass específico (que no sea vacío ni "general")
     if (serviceClassLower !== "" && serviceClassLower !== "general") {
       // Admite celdas con servicios separados por comas (ej: "Sampling, Grading")
       const definedServices = serviceClassLower.split(',').map(s => s.trim());
-      
+
       // Comprobar si coincide con alguno de los servicios confirmados en OperationSummary
       const isConfirmed = definedServices.some(svc => {
         for (let confirmed of confirmedServices) {
@@ -173,7 +178,7 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
         return false;
       });
 
-      // Si el servicio no está confirmado en las filas 64-95, omitir columna
+      // Si el servicio no está confirmado en las filas 68-99, omitir columna
       if (!isConfirmed) return;
     }
 
@@ -197,12 +202,27 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
     });
   });
 
+  const serviceOrder = Array.from(confirmedServices).map(s => s.toLowerCase());
+
+  mappings.sort((a, b) => {
+    const idxA = serviceOrder.findIndex(s =>
+      a.serviceClass.toLowerCase().includes(s)
+    );
+
+    const idxB = serviceOrder.findIndex(s =>
+      b.serviceClass.toLowerCase().includes(s)
+    );
+
+    return idxA - idxB;
+  });
+
+
   return mappings;
 }
 
 
 // 1. Obtener la lista de servicios confirmados desde OperationSummary.gs
-  const confirmedServices = getConfirmedOperationsList();
+const confirmedServices = getConfirmedOperationsList();
 
-  // LINEA A AGREGAR:
-  console.log("Servicios confirmados detectados:", Array.from(confirmedServices));
+// LINEA A AGREGAR:
+console.log("Servicios confirmados detectados:", Array.from(confirmedServices));

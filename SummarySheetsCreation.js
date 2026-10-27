@@ -42,7 +42,7 @@ function createOperationSheets(new_google_sheet) {
     }
   }
 
-  // --- Helper: check transport type with confirmation in rows 123–130 ---
+  // --- Helper: check transport type with confirmation in rows 127–134 ---
   function checkTransportSummary(spreadsheet, sourceSheet, rowValue, label) {
     const transportValue = String(sourceSheet.getRange(rowValue, 5).getValue() || "").trim(); // E31 or E33
     if (!transportValue || transportValue.toLowerCase() === "n/a") return;
@@ -55,9 +55,10 @@ function createOperationSheets(new_google_sheet) {
     else if (normalizedTransport === "Train") expectedPhrase = "train x train";
     else if (normalizedTransport === "Container") expectedPhrase = "container summary";
 
-    // Scan rows 123–130 for confirmation
-    const descriptions = sourceSheet.getRange(123, 2, 8, 1).getValues(); // Col B
-    const confirmations = sourceSheet.getRange(123, 5, 8, 1).getValues(); // Col E
+    // Scan rows 127–134 for confirmation
+    // 8 rows until row 134
+    const descriptions = sourceSheet.getRange(127, 2, 8, 1).getValues(); // Col B
+    const confirmations = sourceSheet.getRange(127, 5, 8, 1).getValues(); // Col E
 
     let confirmed = false;
     for (let i = 0; i < descriptions.length; i++) {
@@ -83,8 +84,8 @@ function createOperationSheets(new_google_sheet) {
   checkTransportSummary(new_google_sheet, activeSheet, 31, "Reception");
   checkTransportSummary(new_google_sheet, activeSheet, 33, "Loading");
 
-  // --- Range 2: Operations (Row 64–95) ---
-  evaluateRange(new_google_sheet, activeSheet, 64, 95, {
+  // --- Range 2: Operations (Row 68–99) ---
+  evaluateRange(new_google_sheet, activeSheet, 68, 99, {
     "reception": { sheetName: "Client_Reception_Summary", title: "Reception Summary" },
     "stock inspection": { sheetName: "Client_Stock_Inspection_Summary", title: "Stock Inspection Summary" },
     "loading": { sheetName: "Client_Loading_Summary", title: "Loading Summary" },

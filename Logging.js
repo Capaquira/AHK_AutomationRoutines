@@ -6,9 +6,20 @@
     );
     const logSheet = logSS.getSheetByName("Log") || logSS.insertSheet("Log");
 
-    // Fecha y hora
-    const date = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
-    const time = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm:ss");
+
+
+
+    // == Date and Time ==
+    // LATAM  (GMT-4)
+    // UK (GMT+1)
+
+    // Exceuter Time
+    const executerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone; // under testing
+
+    const dateLATAM = Utilities.formatDate(new Date(), "America/La_Paz", "yyyy-MM-dd HH:mm:ss");
+    const dateUK = Utilities.formatDate(new Date(), "Europe/London", "yyyy-MM-dd HH:mm:ss");
+    const dateExecuter = Utilities.formatDate(new Date(),executerTimeZone, "yyyy-MM-dd HH:mm:ss");
+    console.log(Intl.DateTimeFormat().resolvedOptions());
 
     // Usuario que ejecuta el script
     const scriptUserExecuter = Session.getActiveUser().getEmail();
@@ -35,8 +46,12 @@
         version = "V_" + Utilities.formatString("%010d", nextNum);
       }
     }
+  
+  // Executer location
+  //const spreadsheetTZ = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+  const spreadsheetTZ = Intl.DateTimeFormat().resolvedOptions().timeZone; // under testing
 
     // Agregar fila respetando el orden de columnas:
-    // Date | Time | File Name | Version | User Request | File Link | Script User Executer
-    logSheet.appendRow([date, time, fileName, version, userRequest, fileType, fileUrl, scriptUserExecuter]);
+    // DateLATAM | DateUK | File Name | Version | User Request | File Link | Script User Executer
+    logSheet.appendRow([dateLATAM, dateUK,dateExecuter, fileName, version, userRequest, fileType, fileUrl, scriptUserExecuter, spreadsheetTZ]);
   }

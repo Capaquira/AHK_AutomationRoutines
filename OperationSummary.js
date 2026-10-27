@@ -2,8 +2,8 @@
 function getConfirmedOperationsSummary() {
   const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
 
-  const startRow = 64;
-  const numRows = 95 - 64 + 1;
+  const startRow = 68;
+  const numRows = 99 - 68 + 1;
   const data = activeSheet.getRange(startRow, 2, numRows, 5).getValues(); 
 
   const serviceMap = new Map(); // clave = Reception/Loading/Stand-alone, valor = lista de servicios
@@ -80,14 +80,14 @@ function formatNaturalList(items) {
 
 /**
  * Extrae y retorna un Set de identificadores de servicios confirmados en minúsculas
- * evaluando exactamente el mismo criterio del rango 64-95.
+ * evaluando exactamente el mismo criterio del rango 68-99.
  * @returns {Set<string>} Conjunto con las claves de servicios confirmados.
  */
 function getConfirmedOperationsList() {
   const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
 
-  const startRow = 64;
-  const numRows = 95 - 64 + 1;
+  const startRow = 68;
+  const numRows = 99 - 68 + 1;
   // Col B (índice 0), Col E confirmación (índice 3), Col F especificación (índice 4)
   const data = activeSheet.getRange(startRow, 2, numRows, 5).getValues(); 
 

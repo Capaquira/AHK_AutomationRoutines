@@ -5,9 +5,9 @@
   function getConfirmedWeighingMethods() {
     const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
 
-    // 1. Batch read B65:E96 (32 rows x 4 columns)
-    const startRow = 65;
-    const numRows = 96 - 65 + 1; 
+    // 1. Batch read B68:E99 (32 rows x 4 columns)
+    const startRow = 68;
+    const numRows = 99 - 68 + 1; 
     const data = activeSheet.getRange(startRow, 2, numRows, 4).getValues();
 
     const weighingMethods = [];
