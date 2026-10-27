@@ -122,18 +122,28 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
  */
 function loadServiceMappings(trafiguraFlag, excelFlag) {
   const configSS = SpreadsheetApp.openByUrl(
-    "https://docs.google.com/spreadsheets/d/1FZo4hMpiJOM-cfFbC10Wb5Nug27T77wF/edit#gid=2107217982"
+    //"https://docs.google.com/spreadsheets/d/1FZo4hMpiJOM-cfFbC10Wb5Nug27T77wF/edit#gid=2107217982"
+    "https://docs.google.com/spreadsheets/d/1QqmHCH6OgZaV3kDXz8eRPpyhOffRlgIzH_nDlQ2urRI/edit#gid=2118177262"
   );
-  const configSheet = configSS.getSheetByName('Service_Config');
+  
+  const configSheet = configSS.getSheetByName(
+  trafiguraFlag === 1
+    ? 'Traf Master Tab (Traf Mine)'
+    : 'Master Tab (All other Templates)'
+  );
 
   if (!configSheet) {
-    throw new Error("Sheet 'Service_Config' not found in the configuration spreadsheet.");
+    throw new Error("Sheet 'Master Tab (All other Templates) or Traf Master Tab (Traf Mine)' not found in the configuration spreadsheet.");
   }
 
   const lastRow = configSheet.getLastRow();
   if (lastRow < 2) return [];
 
-  const values = configSheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  const values = configSheet.getRange(2, 1, lastRow - 1, 28).getValues();
+  // 2              Start row
+  // 1              Start column 1 (A)
+  // lastRow - 1    All rows from 2 to the last one
+  // 13             End column to be used
 
   // 1. Obtener la lista de servicios confirmados desde OperationSummary.gs
   const confirmedServices = getConfirmedOperationsList();
@@ -141,24 +151,20 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
   // 2. Set para evitar duplicados de nombres de columnas
   const seenColumnNames = new Set();
 
-  const targetColIndex = (trafiguraFlag === 1) ? 1 : 0;
-  const targetFormulaIndex = (excelFlag === 1) ? 12 : 11;
+  // const targetColFormulaIndex = (trafiguraFlag === 1) ? 4 : 9;
+  const targetFormulaIndex = (trafiguraFlag === 1) ? 4 : 9;
+
   const mappings = [];
 
   values.forEach(row => {
-    // Definir nombre de columna (Col B para Trafigura con respaldo en Col A, o Col A para estándar)
-    let columnName = String(row[targetColIndex] || "").trim();
-    if (trafiguraFlag === 1 && !columnName) {
-      columnName = String(row[0] || "").trim();
-    }
-
-    const serviceClass = String(row[5] || "").trim();
+    let columnName = String(row[0] || "").trim();
+    const serviceClass = String(row[1] || "").trim();
     if (serviceClass && serviceClass.toLowerCase() !== "general") {
       columnName = `${serviceClass}_${columnName}`;
-    }
+  }
 
     // -------------------------------------------------------------
-    // FILTRO 1: EVALUACIÓN DE SERVICIO (Columna F -> row[5])
+    // FILTRO 1: EVALUACIÓN DE SERVICIO (Columna F -> row[1])
     // -------------------------------------------------------------
     //const serviceClass = String(row[5] || "").trim();
     const serviceClassLower = serviceClass.toLowerCase();
@@ -194,11 +200,11 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
     // Registro de especificación
     mappings.push({
       columnName: columnName,
-      validation: String(row[9] || "").trim(),
+      validation: String(row[20] || "").trim(),
       serviceClass: serviceClass,
-      dateType: String(row[7] || "").trim(),
+      dateType: String(row[18] || "").trim(),
       formula: String(row[targetFormulaIndex] || "").trim(),
-      calcFlag: String(row[8] || "").trim()
+      calcFlag: String(row[19] || "").trim()
     });
   });
 
