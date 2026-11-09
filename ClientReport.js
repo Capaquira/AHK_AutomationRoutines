@@ -15,30 +15,56 @@
  */
 
 function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
+  let clientReportSheet = new_google_sheet.getSheetByName("Client_Report"); // Attempt to retrieve the existing Client_Report sheet.
+  if (!clientReportSheet) {clientReportSheet = new_google_sheet.insertSheet("Client_Report");} // If the sheet doesn't exist, create it.
 
-  let clientReportSheet = new_google_sheet.getSheetByName('Client_Report');
-  if (!clientReportSheet) {
-    clientReportSheet = new_google_sheet.insertSheet('Client_Report');
-  }
+  // parseInt(value, 10):
+  // - "value || 0" uses 0 as the default if the value is empty or undefined.
+  // - "10" specifies decimal (base-10) conversion.
+  const trafiguraFlag = parseInt(flag_TR || 0, 10); // 1 = Trafigura headers, 0 = Standard headers
+  const excelFlag = parseInt(flag_EX || 0, 10);     // 1 = Excel formulas, 0 = Google Sheets formulas
 
-  const trafiguraFlag = parseInt(flag_TR || 0, 10);
-  const excelFlag = parseInt(flag_EX || 0, 10);
+  // Log the flags for debugging
+    console.log(
+      "Generating Client_Report with TrafiguraFlag:",
+      trafiguraFlag,
+      "| Excel Formula Set:",
+      excelFlag,
+    );
 
+  // -----------------------------------------------------------------------------
+  // Header Formatting
+  // -----------------------------------------------------------------------------
 
-  console.log("Generating Client_Report with TrafiguraFlag:", trafiguraFlag, "| Excel Formula Set:", excelFlag);
+  // Set the height of the first row (header row) to 80 pixels.
+  //clientReportSheet.setRowHeight(1, 80);
 
-  // Formato de encabezado fila 1
-  clientReportSheet.setRowHeight(1, 80);
+  // Retrieve the total number of columns currently available in the sheet.
+  // This allows formatting to be applied dynamically across the entire header row,
+  // regardless of future column additions or layout changes.
   const maxColumns = clientReportSheet.getMaxColumns();
-  clientReportSheet.getRange(1, 1, 1, maxColumns)
-    .setWrap(true)
-    .setFontColor('#ffffff')
+  clientReportSheet
+    // Select Row 1 from Column 1 through the last available column.
+    // Parameters: (startRow, startColumn, numRows, numColumns)
+    // Here: Row 1, Column A, 1 row high, spanning all columns.
+    .getRange(1, 1, 1, maxColumns)
+    //.setWrap(true)
+    .setFontColor("#ffffff")
     .setHorizontalAlignment("center")
     .setVerticalAlignment("middle");
 
-  for (let c = 1; c <= maxColumns; c++) {
-    clientReportSheet.setColumnWidth(c, 200);
-  }
+  // -- Column Widths and Auto-Resize --
+  // Column numbering starts at 1 (Column A) and continues through the last
+  // available column in the sheet (maxColumns).
+  for (let c = 1; c <= maxColumns; c++) {}
+
+  // Option A
+  // Set the width of the current column to 200 pixels.
+  //clientReportSheet.setColumnWidth(c, 200);
+  
+  // Option B
+  // Automatically resize all columns based on their content.
+  //clientReportSheet.autoResizeColumns(1, maxColumns);
 
   // -------------------------------------------------------------
   // CARGA DE CONFIGURACIÓN CON FILTRO DE SERVICIOS
@@ -99,6 +125,17 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
     currentCol++;
   });
 
+  // After all columns have been created
+  clientReportSheet.autoResizeColumns(1, currentCol - 1);
+
+  // Add a small visual margin
+  for (let c = 1; c < currentCol; c++) {
+    clientReportSheet.setColumnWidth(
+      c,
+      clientReportSheet.getColumnWidth(c) + 60
+    );
+  }
+
   // Filtro automático
   const lastColUsed = clientReportSheet.getLastColumn();
   const lastRowUsed = clientReportSheet.getLastRow();
@@ -110,6 +147,8 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
     }
     clientReportSheet.getRange(2, 1, lastRowUsed - 1, lastColUsed).createFilter();
   }
+
+  // clientReportSheet.autoResizeColumns(1, maxColumns);
 }
 
 /**
@@ -225,6 +264,7 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
 
 
   return mappings;
+  
 }
 
 
