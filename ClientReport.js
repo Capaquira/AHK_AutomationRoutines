@@ -117,6 +117,7 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
       dataRange.setNumberFormat("0.00");
 
     }
+    }
 
     // Colores de columna
     if (mapping.calcFlag === "Calculated") {
