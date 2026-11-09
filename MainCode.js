@@ -13,7 +13,26 @@
  * @requires DESTINATION_FOLDER_ID - Valid Drive Folder ID with edit permissions.
  */
 
+
 function CreateNewGoogleSheet(excelFlag) {
+  //ExecuterLocations.seleccionarPais(excelFlag);
+  seleccionarPais(excelFlag);
+}
+
+//function CreateNewGoogleSheet(excelFlag) {
+function ContinueCreateNewGoogleSheet(excelFlag,country) {
+
+  // SpreadsheetApp.getUi().alert(
+  // 'ContinueCreateNewGoogleSheet ejecutada\nPais: ' + country
+  // );
+  Logger.log(country);
+
+  PropertiesService
+  .getScriptProperties()
+  .setProperty(
+    'EXECUTION_COUNTRY',
+    country
+  );
 
   // =========================================================================
   // 1. READ DATA FROM CURRENT SHEET

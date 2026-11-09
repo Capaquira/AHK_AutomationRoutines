@@ -18,7 +18,10 @@
 
     const dateLATAM = Utilities.formatDate(new Date(), "America/La_Paz", "yyyy-MM-dd HH:mm:ss");
     const dateUK = Utilities.formatDate(new Date(), "Europe/London", "yyyy-MM-dd HH:mm:ss");
-    const dateExecuter = Utilities.formatDate(new Date(),executerTimeZone, "yyyy-MM-dd HH:mm:ss");
+
+    //const dateExecuter = Utilities.formatDate(new Date(),executerTimeZone, "yyyy-MM-dd HH:mm:ss");
+    const dateExecuter = Utilities.formatDate(new Date(),getExecutionTimeZone(),"yyyy-MM-dd HH:mm:ss");
+
     console.log(Intl.DateTimeFormat().resolvedOptions());
 
     // Usuario que ejecuta el script
@@ -38,7 +41,8 @@
     let version = "V_0000000001";
     const lastRow = logSheet.getLastRow();
     if (lastRow > 1) { // la fila 1 son encabezados
-      const lastVersion = logSheet.getRange(lastRow, 4).getValue();
+      const lastVersion = logSheet.getRange(lastRow, 5).getValue();
+      // Column 5 means column E
       if (lastVersion) {
         // Elimina el prefijo "V_" y convierte a número
         const numericPart = parseInt(lastVersion.replace("V_", ""), 10);
@@ -49,9 +53,10 @@
   
   // Executer location
   //const spreadsheetTZ = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
-  const spreadsheetTZ = Intl.DateTimeFormat().resolvedOptions().timeZone; // under testing
+  //const spreadsheetTZ = getExecutionTimeZone(); // under testing
+  const executionCountry = getExecutionCountry();
 
     // Agregar fila respetando el orden de columnas:
     // DateLATAM | DateUK | File Name | Version | User Request | File Link | Script User Executer
-    logSheet.appendRow([dateLATAM, dateUK,dateExecuter, fileName, version, userRequest, fileType, fileUrl, scriptUserExecuter, spreadsheetTZ]);
+    logSheet.appendRow([dateLATAM, dateUK,dateExecuter, fileName, version, userRequest, fileType, fileUrl, scriptUserExecuter, executionCountry]);
   }
