@@ -66,39 +66,56 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
   // Automatically resize all columns based on their content.
   //clientReportSheet.autoResizeColumns(1, maxColumns);
 
-  // -------------------------------------------------------------
+  // -----------------------------------------------------------------------------
   // CARGA DE CONFIGURACIÓN CON FILTRO DE SERVICIOS
-  // -------------------------------------------------------------
-  const mappings = loadServiceMappings(trafiguraFlag, excelFlag);
-  const maxRows = clientReportSheet.getMaxRows();
+  // -----------------------------------------------------------------------------
+  const mappings = loadServiceMappings(trafiguraFlag, excelFlag); // Load the column configuration from Service_Config (Now from Louis Column Service Mappings), filtered by confirmed services and avoiding duplicates.
+  const maxRows = clientReportSheet.getMaxRows(); // Get the total number of rows in the sheet to apply formatting and data population dynamically.
 
-  let currentCol = 1;
+  let currentCol = 1; // Initialize the current column index to 1 (Column A) for populating the Client_Report sheet.
 
-  mappings.forEach(mapping => {
-    // Encabezado Fila 1
-    clientReportSheet.getRange(1, currentCol)
-      .setValue(mapping.columnName)
-      .setFontSize(10)
-      .setFontWeight("bold")
-      .setHorizontalAlignment("center")
-      .setVerticalAlignment("middle");
+  mappings.forEach(mapping => { // Iterate through each mapping configuration
 
-    // Fila 2 vacía o con fórmula
-    clientReportSheet.getRange(2, currentCol).setValue("");
-    if (mapping.formula) {
-      clientReportSheet.getRange(2, currentCol).setFormula(mapping.formula);
+    // Set the header value for the current column based on the mapping's columnName.
+
+    clientReportSheet.getRange(1, currentCol) // Row 1, current column
+      .setValue(mapping.columnName) // Set the header text to the column name from the mapping.
+      .setFontSize(10) // Set the font size
+      .setFontWeight("bold") // Make the header text bold.
+      .setHorizontalAlignment("center") // Center-align the header text horizontally.
+      .setVerticalAlignment("middle"); // Center-align the header text vertically.
+
+    // Set the validation value for the second row of the current column based on the mapping's validation property.
+
+    clientReportSheet.getRange(2, currentCol).setValue(""); // Set the second row to an empty string initially. This can be used for validation or additional information if needed.
+    if (mapping.formula) { // If a formula is defined in the mapping, set it in the second row of the current column.
+      clientReportSheet.getRange(2, currentCol).setFormula(mapping.formula); // Set the formula in the second row of the current column.
     }
 
-    // Formato de fechas o números en filas de datos
+    // Set the number format for the data rows (from row 3 to the last row) based on the mapping's dateType property.
     if (maxRows > 2) {
-      const dataRange = clientReportSheet.getRange(3, currentCol, maxRows - 2, 1);
+      const dataRange = clientReportSheet.getRange(3, currentCol, maxRows - 2, 1); // Select the range from row 3 to the last row in the current column for data population.
       const dateType = mapping.dateType.toLowerCase();
 
-      if (dateType === "date") {
-        dataRange.setNumberFormat("yyyy-mm-dd");
-      } else if (dateType === "number") {
-        dataRange.setNumberFormat("0.00");
-      }
+
+    // Apply formatting and validation based on the configured data type.
+    if (dateType === "date") {
+
+      dataRange
+        .setNumberFormat("yyyy-MM-dd")
+        .setDataValidation(
+          SpreadsheetApp.newDataValidation()
+            .requireDate()
+            .setHelpText(
+              "Please select or enter a valid date."
+            )
+            .build()
+        );
+
+    } else if (dateType === "number") {
+
+      dataRange.setNumberFormat("0.00");
+
     }
 
     // Colores de columna
@@ -242,7 +259,7 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
       columnName: columnName,
       validation: String(row[20] || "").trim(),
       serviceClass: serviceClass,
-      dateType: String(row[18] || "").trim(),
+      dateType: String(row[18] || "").trim(), // 
       formula: String(row[targetFormulaIndex] || "").trim(),
       calcFlag: String(row[19] || "").trim()
     });
