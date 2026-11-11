@@ -99,4 +99,5 @@ function createOperationSheets(new_google_sheet) {
     "blending": { sheetName: "Client_Blending_Summary", title: "Blending Summary" }
   });
 
+
 }
