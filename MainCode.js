@@ -25,14 +25,16 @@ function ContinueCreateNewGoogleSheet(excelFlag,country) {
   // SpreadsheetApp.getUi().alert(
   // 'ContinueCreateNewGoogleSheet ejecutada\nPais: ' + country
   // );
-  Logger.log(country);
+  
+  try {
+    Logger.log(country);
 
-  PropertiesService
-  .getScriptProperties()
-  .setProperty(
-    'EXECUTION_COUNTRY',
-    country
-  );
+    PropertiesService
+    .getScriptProperties()
+    .setProperty(
+      'EXECUTION_COUNTRY',
+      country
+    );
 
   // =========================================================================
   // 1. READ DATA FROM CURRENT SHEET
@@ -47,6 +49,11 @@ function ContinueCreateNewGoogleSheet(excelFlag,country) {
   // getRange('B3'): Selects cell B3 within the active sheet.
   // getValue(): Retrieves the text or numerical value inside cell B3 to use as the new file name.
   const new_template_name = current_google_sheet.getRange('B3').getValue();
+
+  // Preventive Validation: If B3 is empty, the error is launch and the template generation is stoped 
+  if (!new_template_name || new_template_name.toString().trim() === "") {
+    throw new Error("La celda B3 está vacía. Debes ingresar un nombre válido para la plantilla.");
+  }
 
   // Set up destination
   const DESTINATION_FOLDER_ID = "1abEPExDsu_w4-VPLy5JVckZf59m42QvS";
@@ -287,48 +294,122 @@ function ContinueCreateNewGoogleSheet(excelFlag,country) {
   let excelButton = '';
 
   if (flag_EX === 1) {
+  
     excelButton = `
-      <p style="margin-top:20px;">Download the Excel version:</p>
-
       <a href="${excelUrl}" target="_blank"
         style="
-          display:inline-block;
-          padding:10px 20px;
+          display:block;
+          width:220px;
+          margin:0 auto;
+          padding:12px 20px;
           background:#fbbc04;
-          color:#000;
+          color:#202124;
           text-decoration:none;
-          border-radius:4px;
-          font-weight:bold;
-          margin-bottom:10px;">
-        Download XLSX
+          border-radius:8px;
+          font-weight:600;
+          box-shadow:0 2px 6px rgba(0,0,0,.15);
+        ">
+        📊 Download Excel (.xlsx)
       </a>
     `;
+
   }
 
   const htmlOutput = HtmlService.createHtmlOutput(`
-    <div style="text-align:center; font-family:Arial; padding:20px;">
-      
-      <h3>Open file</h3>
-      
-      <p>Click the button below to open the new template:</p>
+
+    <div style="
+        font-family:Arial,sans-serif;
+        padding:30px;
+        text-align:center;
+        color:#202124;
+    ">
+
+      <div style="
+          font-size:48px;
+          margin-bottom:10px;
+      ">
+        ✅
+      </div>
+
+      <h2 style="
+          margin:0 0 10px 0;
+          color:#1a73e8;
+          font-weight:600;
+      ">
+        Template Ready
+      </h2>
+
+      <p style="
+          color:#5f6368;
+          margin-bottom:25px;
+          line-height:1.5;
+      ">
+        Your template has been successfully generated.
+
+      </p>
 
       <a href="${url}" target="_blank"
-        style="display:inline-block; padding:10px 20px; background:#4285f4; color:#fff; 
-              text-decoration:none; border-radius:4px; font-weight:bold; margin-bottom:10px;">
-        Open File
+        style="
+          display:block;
+          width:220px;
+          margin:0 auto 12px auto;
+          padding:12px 20px;
+          background:#1a73e8;
+          color:#ffffff;
+          text-decoration:none;
+          border-radius:8px;
+          font-weight:600;
+          box-shadow:0 2px 6px rgba(0,0,0,.15);
+        ">
+        📄 Open Template
       </a>
 
       ${excelButton}
 
-      <p>Or check the log of generated templates:</p>
       <a href="${logUrl}" target="_blank"
-        style="display:inline-block; padding:10px 20px; background:#34a853; color:#fff; 
-              text-decoration:none; border-radius:4px; font-weight:bold;">
-        View Log
+        style="
+          display:block;
+          width:220px;
+          margin:12px auto 0 auto;
+          padding:12px 20px;
+          background:#34a853;
+          color:#ffffff;
+          text-decoration:none;
+          border-radius:8px;
+          font-weight:600;
+          box-shadow:0 2px 6px rgba(0,0,0,.15);
+        ">
+        📋 View Execution Log
       </a>
+
+      <div style="
+          margin-top:25px;
+          font-size:12px;
+          color:#5f6368;
+      ">
+        You may now close this window.
+      </div>
+
     </div>
-  `).setWidth(500).setHeight(400);
+
+  `).setWidth(550).setHeight(420);
 
   ui.showModalDialog(htmlOutput, 'Open file');
 
+}
+
+// ==========================================
+// Close TRY and Start CATCH
+// ==========================================
+  catch (error) {
+    // If something fail in the main code then the scrip jump to here
+    Logger.log("❌ Critical Error: " + error.message);
+    
+    // Muestra una ventana de alerta nativa al usuario informando el problema
+    SpreadsheetApp.getUi().alert(
+      "Ejecution Error",
+      "The template generation process has been stoped.\n\nDetail of the Error:\n" + error.message,
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+  }
 }
