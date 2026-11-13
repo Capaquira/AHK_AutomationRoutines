@@ -72,6 +72,7 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
   // -----------------------------------------------------------------------------
   const mappings = loadServiceMappings(trafiguraFlag, excelFlag); // Load the column configuration from Service_Config (Now from Louis Column Service Mappings), filtered by confirmed services and avoiding duplicates.
   
+  /****
   const activePrimaryServices = new Set();
 
   mappings.forEach(mapping => {
@@ -86,6 +87,32 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
     new_google_sheet.insertSheet(sheetName);
   }
   });
+  ****/
+
+
+
+  // Retrieve the confirmed Primary Services from OperationSummary.
+  const confirmedPrimaryServices = Array.from(
+    getConfirmedOperationsList()
+  );
+
+  // Create one Client_Report sheet for each confirmed Primary Service.
+  confirmedPrimaryServices.forEach(service => {
+
+    const formattedService =
+      service.charAt(0).toUpperCase() +
+      service.slice(1).toLowerCase();
+
+    const sheetName = `Client_Report_${formattedService}`;
+
+    if (!new_google_sheet.getSheetByName(sheetName)) {
+      new_google_sheet.insertSheet(sheetName);
+    }
+
+  });
+
+
+
   
   const maxRows = clientReportSheet.getMaxRows(); // Get the total number of rows in the sheet to apply formatting and data population dynamically.
 
@@ -326,8 +353,8 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
 
   // This part shoud be recostructed because Column B has to with Seconday Service not the Main one
   // Read the associated service class (Column B).
-  const serviceClass = String(row[1] || "").trim();
-  
+  //const serviceClass = String(row[1] || "").trim();
+
   // Determine which Primary Service(s) this field belongs to.
   const receptionFlag = String(
     row[primaryServiceColumns.reception] || ""
@@ -355,41 +382,74 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
     primaryServices.push("Loading");
   }
 
+  // *** New aproach ***
+  const primaryServicesLower = primaryServices.map(service =>
+    service.toLowerCase()
+  );
+  // Service Name concadenation
+  const primaryServiceName = (primaryServices[0] || "").toUpperCase();
+  if (primaryServiceName) {
+    columnName = `${primaryServiceName}_${columnName}`;
+  }
+
   // Prefix the column name with the service class unless the service is blank or classified as "General".
-  if (serviceClass && serviceClass.toLowerCase() !== "general") {
+  //if (serviceClass && serviceClass.toLowerCase() !== "general") {
     // Trafigura: Sentence Case (e.g., "Sampling")
     // Standard: UPPERCASE (e.g., "SAMPLING")
-    const formattedServiceClass =
-      trafiguraFlag === 1
-        ? serviceClass.charAt(0).toUpperCase() + serviceClass.slice(1).toLowerCase()
-        : serviceClass.toUpperCase();
-    columnName = `${formattedServiceClass}_${columnName}`;
-  }
+    //const formattedServiceClass =
+      //trafiguraFlag === 1
+        //? serviceClass.charAt(0).toUpperCase() + serviceClass.slice(1).toLowerCase()
+        //: serviceClass.toUpperCase();
+    //columnName = `${formattedServiceClass}_${columnName}`;
+  //}                           
 
     // -------------------------------------------------------------
     // FILTRO 1: EVALUACIÓN DE SERVICIO (Columna F -> row[1])
     // -------------------------------------------------------------
     //const serviceClass = String(row[5] || "").trim();
-    const serviceClassLower = serviceClass.toLowerCase();
+    //const serviceClassLower = serviceClass.toLowerCase();
 
     // Si tiene asignado un serviceClass específico (que no sea vacío ni "general")
-    if (serviceClassLower !== "" && serviceClassLower !== "general") {
+    //if (serviceClassLower !== "" && serviceClassLower !== "general") {
       // Admite celdas con servicios separados por comas (ej: "Sampling, Grading")
-      const definedServices = serviceClassLower.split(",").map((s) => s.trim());
+      //const definedServices = serviceClassLower.split(",").map((s) => s.trim());
 
       // Comprobar si coincide con alguno de los servicios confirmados en OperationSummary
-      const isConfirmed = definedServices.some((svc) => {
-        for (let confirmed of confirmedServices) {
-          if (confirmed.includes(svc) || svc.includes(confirmed)) {
-            return true;
-          }
-        }
-        return false;
-      });
+      //const isConfirmed = definedServices.some((svc) => {
+        //for (let confirmed of confirmedServices) {
+          //if (confirmed.includes(svc) || svc.includes(confirmed)) {
+            //return true;
+          //}
+        //}
+        //return false;
+      //});
 
-      // Si el servicio no está confirmado en las filas 68-99, omitir columna
-      if (!isConfirmed) return;
+    // Keep the field only when at least one of its Primary Services
+    // is present in the confirmed services list.
+    const isConfirmed = primaryServicesLower.some(primaryService => {
+
+      for (const confirmed of confirmedServices) {
+
+        const confirmedLower = String(confirmed)
+          .trim()
+          .toLowerCase();
+
+        if (
+          confirmedLower === primaryService ||
+          confirmedLower.includes(primaryService) ||
+          primaryService.includes(confirmedLower)
+        ) {
+          return true;
+        }
+      }
+
+      return false;
+    });
+
+    if (!isConfirmed) {
+      return;
     }
+
 
   // -------------------------------------------------------------
   // FILTER 2: SKIP EMPTY OR DUPLICATE COLUMN NAMES
@@ -414,7 +474,10 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
   mappings.push({
   columnName: columnName,
   validation: String(row[20] || "").trim(),
-  serviceClass: serviceClass,
+  
+  primaryServices: primaryServices,
+  //serviceClass: serviceClass,
+
   primaryServices: primaryServices,
   dateType: String(row[18] || "").trim(),
   formula: String(row[targetFormulaIndex] || "").trim(),
@@ -423,8 +486,12 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
 
   });
 
+
+
 // Build a normalized service order list based on the confirmed
 // operations returned from OperationSummary.
+
+/*****
 const serviceOrder = Array.from(confirmedServices).map((s) =>
   s.toLowerCase(),
 );
@@ -446,6 +513,7 @@ mappings.sort((a, b) => {
   // Preserve the confirmed service order in the final report layout.
   return idxA - idxB;
 });
+*****/
 
 // Return the complete list of processed column mappings.
 return mappings;
