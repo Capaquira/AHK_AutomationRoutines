@@ -43,7 +43,13 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
   // Retrieve the total number of columns currently available in the sheet.
   // This allows formatting to be applied dynamically across the entire header row,
   // regardless of future column additions or layout changes.
-  const maxColumns = clientReportSheet.getMaxColumns();
+
+  const maxColumns = Math.max(
+    clientReportSheet.getLastColumn(),
+    1
+  );
+
+
   clientReportSheet
     // Select Row 1 from Column 1 through the last available column.
     // Parameters: (startRow, startColumn, numRows, numColumns)
@@ -59,44 +65,18 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
   // available column in the sheet (maxColumns).
   for (let c = 1; c <= maxColumns; c++) {}
 
-  // Option A
-  // Set the width of the current column to 200 pixels.
-  //clientReportSheet.setColumnWidth(c, 200);
-
-  // Option B
-  // Automatically resize all columns based on their content.
-  //clientReportSheet.autoResizeColumns(1, maxColumns);
-
   // -----------------------------------------------------------------------------
   // CARGA DE CONFIGURACIÓN CON FILTRO DE SERVICIOS
   // -----------------------------------------------------------------------------
   const mappings = loadServiceMappings(trafiguraFlag, excelFlag); // Load the column configuration from Service_Config (Now from Louis Column Service Mappings), filtered by confirmed services and avoiding duplicates.
-  
-  /****
-  const activePrimaryServices = new Set();
-
-  mappings.forEach(mapping => {
-    mapping.primaryServices.forEach(service => {
-      activePrimaryServices.add(service);
-    });
-  });
-  
-  activePrimaryServices.forEach(service => {
-  const sheetName = `Client_Report_${service}`;
-  if (!new_google_sheet.getSheetByName(sheetName)) {
-    new_google_sheet.insertSheet(sheetName);
-  }
-  });
-  ****/
-
-
 
   // Retrieve the confirmed Primary Services from OperationSummary.
   const confirmedPrimaryServices = Array.from(
     getConfirmedOperationsList()
   );
 
-  // Create one Client_Report sheet for each confirmed Primary Service.
+  // Create one Client_Report sheet for each confirmed Primary Service
+
   confirmedPrimaryServices.forEach(service => {
 
     const formattedService =
@@ -111,141 +91,394 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
 
   });
 
+  // -----------------------------------------------------------------------------
+  // Populate Client_Report_<PrimaryService> sheets
+  // -----------------------------------------------------------------------------
+
+  confirmedPrimaryServices.forEach(service => {
+
+    const formattedService =
+      service.charAt(0).toUpperCase() +
+      service.slice(1).toLowerCase();
+
+    const reportSheet =
+      new_google_sheet.getSheetByName(
+        `Client_Report_${formattedService}`
+      );
+
+    let reportCol = 1;
+
+    mappings.forEach(mapping => {
+
+      // Skip columns that do not belong to the current service
+      if (!mapping.primaryServices.includes(formattedService)) {
+        return;
+      }
+
+      const headerName =
+        `${formattedService.toUpperCase()}_${mapping.columnName}`;
+
+      reportSheet
+        .getRange(1, reportCol)
+        .setValue(headerName)
+        .setFontSize(10)
+        .setFontWeight("bold")
+        .setFontColor("#ffffff")
+        .setHorizontalAlignment("center")
+        .setVerticalAlignment("middle");
+
+      // Formula row
+      reportSheet.getRange(2, reportCol).setValue("");
+
+      if (mapping.formula) {
+
+        reportSheet
+          .getRange(2, reportCol)
+          .setFormula(mapping.formula);
+
+      }
+
+      
+
+      const reportMaxRows =
+        reportSheet.getMaxRows();
+
+      if (reportMaxRows > 2) {
+
+        const dataRange =
+          reportSheet.getRange(
+            3,
+            reportCol,
+            reportMaxRows - 2,
+            1
+          );
+
+        const dateType = String(
+          mapping.dateType || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        if (dateType === "date") {
+
+          dataRange
+            .setNumberFormat("yyyy-MM-dd")
+            .setDataValidation(
+              SpreadsheetApp
+                .newDataValidation()
+                .requireDate()
+                .build()
+            );
+
+        } else if (dateType === "number") {
+
+          dataRange.setNumberFormat("0.00");
+
+        }
+
+      }
 
 
-  
+      if (mapping.calcFlag === "Calculated") {
+
+        reportSheet.getRange(
+          1,
+          reportCol,
+          2,
+          1
+        ).setBackground("#e06666");
+
+        const altRows = reportMaxRows - 3;
+
+        if (altRows > 0) {
+
+          const colorsRedWhite =
+            Array.from(
+              { length: altRows },
+              (_, i) => [
+                i % 2 === 0
+                  ? "#fce8e6"
+                  : "#ffffff"
+              ]
+            );
+
+          reportSheet
+            .getRange(
+              4,
+              reportCol,
+              altRows,
+              1
+            )
+            .setBackgrounds(
+              colorsRedWhite
+            );
+
+        }
+
+      } else {
+
+        reportSheet.getRange(
+          1,
+          reportCol,
+          2,
+          1
+        ).setBackground("#a9a9a9");
+
+        const altRows = reportMaxRows - 3;
+
+        if (altRows > 0) {
+
+          const colorsGrayWhite =
+            Array.from(
+              { length: altRows },
+              (_, i) => [
+                i % 2 === 0
+                  ? "#e0e0e0"
+                  : "#ffffff"
+              ]
+            );
+
+          reportSheet
+            .getRange(
+              4,
+              reportCol,
+              altRows,
+              1
+            )
+            .setBackgrounds(
+              colorsGrayWhite
+            );
+
+        }
+
+      }
+
+      reportCol++;
+
+    });
+
+    // -----------------------------------------------------------------------------
+    // Resize Columns
+    // -----------------------------------------------------------------------------
+
+    if (reportCol > 1) {
+
+      reportSheet.autoResizeColumns(
+        1,
+        reportCol - 1
+      );
+
+      for (let c = 1; c < reportCol; c++) {
+
+        reportSheet.setColumnWidth(
+          c,
+          reportSheet.getColumnWidth(c) + 60
+        );
+
+      }
+
+    }
+
+    // -----------------------------------------------------------------------------
+    // Add Filter
+    // -----------------------------------------------------------------------------
+
+    const reportLastCol =
+      reportSheet.getLastColumn();
+
+    const reportLastRow =
+      reportSheet.getLastRow();
+
+    if (reportSheet.getFilter()) {
+      reportSheet.getFilter().remove();
+    }
+
+    if (
+      reportLastCol > 0 &&
+      reportLastRow >= 2
+    ) {
+
+      reportSheet
+        .getRange(
+          2,
+          1,
+          reportLastRow - 1,
+          reportLastCol
+        )
+        .createFilter();
+
+    }
+
+  });
+
   const maxRows = clientReportSheet.getMaxRows(); // Get the total number of rows in the sheet to apply formatting and data population dynamically.
 
   let currentCol = 1; // Initialize the current column index to 1 (Column A) for populating the Client_Report sheet.
 
+  const confirmedPrimaryServicesLower =
+    confirmedPrimaryServices.map(service =>
+      service.toLowerCase()
+    );
+
+  
   mappings.forEach((mapping) => {
-    // Iterate through each mapping configuration
+  
 
-    // Set the header value for the current column based on the mapping's columnName.
-    clientReportSheet
-      .getRange(1, currentCol) // Row 1, current column
-      .setValue(mapping.columnName) // Set the header text to the column name from the mapping.
-      .setFontSize(10) // Set the font size
-      .setFontWeight("bold") // Make the header text bold.
-      .setHorizontalAlignment("center") // Center-align the header text horizontally.
-      .setVerticalAlignment("middle"); // Center-align the header text vertically.
+    mapping.primaryServices.forEach((service) => {
 
-    // Set the validation value for the second row of the current column based on the mapping's validation property.
-    clientReportSheet.getRange(2, currentCol).setValue(""); // Set the second row to an empty string initially. This can be used for validation or additional information if needed.
-    if (mapping.formula) {
-      // If a formula is defined in the mapping, set it in the second row of the current column.
-      clientReportSheet.getRange(2, currentCol).setFormula(mapping.formula); // Set the formula in the second row of the current column.
-    }
-
-    // Set the number format for the data rows (from row 3 to the last row)
-    // based on the mapping's configured data type.
-    if (maxRows > 2) {
-      // Select the data range in the current column, starting at row 3.
-      const dataRange = clientReportSheet.getRange(
-        3, // Start row
-        currentCol, // Current column
-        maxRows - 2, // Number of rows from row 3 to the last row
-        1, // Single column
-      );
-
-      // Retrieve the configured data type.
-      // Using String(... || "") prevents errors if dateType is null,
-      // undefined, or empty before converting to lowercase.
-      const dateType = String(mapping.dateType || "")
-        .trim()
-        .toLowerCase();
-
-      // Apply formatting and validation rules based on the configured data type.
-      if (dateType === "date") {
-        dataRange
-          .setNumberFormat("yyyy-MM-dd") // Display dates using ISO format (YYYY-MM-DD)
-          .setDataValidation(
-            // Restrict user input to valid date values
-            SpreadsheetApp.newDataValidation()
-              .requireDate() // Only valid dates are allowed
-              .build(),
-          );
-      } else if (dateType === "number") {
-        dataRange.setNumberFormat("0.00"); // Display numeric values with two decimal places
+      if (
+        !confirmedPrimaryServicesLower.includes(
+          service.toLowerCase()
+        )
+      ) {
+        return;
       }
-    }
 
-    // -----------------------------------------------------------------------------
-    // COLOR CODING BASED ON CALCULATION FLAG: CALCULATED VS MANUAL INPUT FIELDS
-    // -----------------------------------------------------------------------------
+      const headerName =
+        `${service.toUpperCase()}_${mapping.columnName}`;
 
-    // If the column is marked as "Calculated", apply a red header background and alternating row colors for better visual distinction.
-    if (mapping.calcFlag === "Calculated") {
+      // Iterate through each mapping configuration
+
+      // Set the header value for the current column based on the mapping's columnName.
+      clientReportSheet
+        .getRange(1, currentCol) // Row 1, current column
+        .setValue(headerName) // Set the header text to the column name from the mapping.
+        .setFontSize(10) // Set the font size
+        .setFontWeight("bold") // Make the header text bold.
+        .setFontColor("#ffffff")
+        .setHorizontalAlignment("center") // Center-align the header text horizontally.
+        .setVerticalAlignment("middle"); // Center-align the header text vertically.
+
+      // Set the validation value for the second row of the current column based on the mapping's validation property.
+      clientReportSheet.getRange(2, currentCol).setValue(""); // Set the second row to an empty string initially. This can be used for validation or additional information if needed.
+      if (mapping.formula) {
+        // If a formula is defined in the mapping, set it in the second row of the current column.
+        clientReportSheet.getRange(2, currentCol).setFormula(mapping.formula); // Set the formula in the second row of the current column.
+      }
+
+      // Set the number format for the data rows (from row 3 to the last row)
+      // based on the mapping's configured data type.
+      if (maxRows > 2) {
+        // Select the data range in the current column, starting at row 3.
+        const dataRange = clientReportSheet.getRange(
+          3, // Start row
+          currentCol, // Current column
+          maxRows - 2, // Number of rows from row 3 to the last row
+          1, // Single column
+        );
+        
+
+        // Retrieve the configured data type.
+        // Using String(... || "") prevents errors if dateType is null,
+        // undefined, or empty before converting to lowercase.
+        const dateType = String(mapping.dateType || "")
+          .trim()
+          .toLowerCase();
+
+        // Apply formatting and validation rules based on the configured data type.
+        if (dateType === "date") {
+          dataRange
+            .setNumberFormat("yyyy-MM-dd") // Display dates using ISO format (YYYY-MM-DD)
+            .setDataValidation(
+              // Restrict user input to valid date values
+              SpreadsheetApp.newDataValidation()
+                .requireDate() // Only valid dates are allowed
+                .build(),
+            );
+        } else if (dateType === "number") {
+          dataRange.setNumberFormat("0.00"); // Display numeric values with two decimal places
+        }
+      }
       
-      // Header and Formula Row Background Color
-      clientReportSheet.getRange(
-        1, // Row 1
-        currentCol, // Current column
-        2, // Rows 1 and 2
-        1 // Single column
-      ).setBackground("#e06666"); // Set the header background color to red for calculated fields.
 
-      // Data Rows Background Color (Alternating Red and White)
-      const altRows = maxRows - 3; // Calculate the number of rows below the header and validation rows for alternating colors.
-      if (altRows > 0) { // If there are rows below the header and validation rows, apply alternating colors for better readability.
-        const colorsRedWhite = Array.from({ length: altRows }, (_, i) => [
-          i % 2 === 0 ? "#fce8e6" : "#ffffff", // Alternate between light red and white for calculated fields
-        ]);
-        clientReportSheet // Select the range of data rows in the current column and apply the alternating background colors.
-          .getRange(
-            4, // Start row 4 because the 3rd raw is white for all cases
-            currentCol, // Current column
-            altRows, // Number of rows from row 4 to the last row
-            1 // Single column
-          )
-          .setBackgrounds(colorsRedWhite); // Set the alternating background colors for calculated fields.
+      // -----------------------------------------------------------------------------
+      // COLOR CODING BASED ON CALCULATION FLAG: CALCULATED VS MANUAL INPUT FIELDS
+      // -----------------------------------------------------------------------------
+
+      // If the column is marked as "Calculated", apply a red header background and alternating row colors for better visual distinction.
+      if (mapping.calcFlag === "Calculated") {
+        
+        // Header and Formula Row Background Color
+        clientReportSheet.getRange(
+          1, // Row 1
+          currentCol, // Current column
+          2, // Rows 1 and 2
+          1 // Single column
+        ).setBackground("#e06666"); // Set the header background color to red for calculated fields.
+
+        // Data Rows Background Color (Alternating Red and White)
+        const altRows = maxRows - 3; // Calculate the number of rows below the header and validation rows for alternating colors.
+        if (altRows > 0) { // If there are rows below the header and validation rows, apply alternating colors for better readability.
+          const colorsRedWhite = Array.from({ length: altRows }, (_, i) => [
+            i % 2 === 0 ? "#fce8e6" : "#ffffff", // Alternate between light red and white for calculated fields
+          ]);
+          clientReportSheet // Select the range of data rows in the current column and apply the alternating background colors.
+            .getRange(
+              4, // Start row 4 because the 3rd raw is white for all cases
+              currentCol, // Current column
+              altRows, // Number of rows from row 4 to the last row
+              1 // Single column
+            )
+            .setBackgrounds(colorsRedWhite); // Set the alternating background colors for calculated fields.
+        }
+
+      } else {
+        // For non-calculated fields, apply a gray header background and alternating row colors for better visual distinction.
+        clientReportSheet.getRange(
+          1, // Row 1
+          currentCol, // Current column of the iteration
+          2, // Rows 1 and 2
+          1 // Single column (the current column, all column cannot be colored at one because some columns are calculated and others are not)
+        ).setBackground("#a9a9a9"); // Set the header background color to gray for non-calculated fields.
+
+        // Data Rows Background Color (Alternating Gray and White)
+        const altRows = maxRows - 3; // Calculate the number of rows below the header and validation rows for alternating colors.
+        if (altRows > 0) { // If there are rows below the header and validation rows, apply alternating colors for better readability.
+          const colorsGrayWhite = Array.from({ length: altRows }, (_, i) => [
+            i % 2 === 0 ? "#e0e0e0" : "#ffffff", // Alternate between light gray and white for non-calculated fields
+          ]);
+          clientReportSheet // Select the range of data rows in the current column and apply the alternating background colors.
+            .getRange(
+              4, // Start row 4 because the 3rd row is white for all cases
+              currentCol, // Current column of the iteration
+              altRows, // Number of rows from row 4 to the last row
+              1 // Single column (If a value  diferente than 1 is used like 5, it will color the following 4 columns as well, which is not desired)
+            )
+            .setBackgrounds(colorsGrayWhite); // Set the alternating background colors for non-calculated fields.
+        }
       }
 
-    } else {
-      // For non-calculated fields, apply a gray header background and alternating row colors for better visual distinction.
-      clientReportSheet.getRange(
-        1, // Row 1
-        currentCol, // Current column of the iteration
-        2, // Rows 1 and 2
-        1 // Single column (the current column, all column cannot be colored at one because some columns are calculated and others are not)
-      ).setBackground("#a9a9a9"); // Set the header background color to gray for non-calculated fields.
+    
+      currentCol++; // Move to the next column for the next iteration of the mapping configuration.
+    });
 
-      // Data Rows Background Color (Alternating Gray and White)
-      const altRows = maxRows - 3; // Calculate the number of rows below the header and validation rows for alternating colors.
-      if (altRows > 0) { // If there are rows below the header and validation rows, apply alternating colors for better readability.
-        const colorsGrayWhite = Array.from({ length: altRows }, (_, i) => [
-          i % 2 === 0 ? "#e0e0e0" : "#ffffff", // Alternate between light gray and white for non-calculated fields
-        ]);
-        clientReportSheet // Select the range of data rows in the current column and apply the alternating background colors.
-          .getRange(
-            4, // Start row 4 because the 3rd row is white for all cases
-            currentCol, // Current column of the iteration
-            altRows, // Number of rows from row 4 to the last row
-            1 // Single column (If a value  diferente than 1 is used like 5, it will color the following 4 columns as well, which is not desired)
-          )
-          .setBackgrounds(colorsGrayWhite); // Set the alternating background colors for non-calculated fields.
-      }
-    }
-
-    currentCol++; // Move to the next column for the next iteration of the mapping configuration.
   });
+
+
 
   // -----------------------------------------------------------------------------
   // Resizing Columns and Adding Visual Margin
   // -----------------------------------------------------------------------------
   // After all columns have been created to rezise all the columns at once
-  clientReportSheet.autoResizeColumns(
-    1, // Start from the first column (Column A)
-    currentCol - 1 // currentCol is incremented after the last column, so we subtract 1 to get the last used column index.
-  );
 
-  // Adding a small visual margin
-  for (let c = 1; c < currentCol; c++) { // Iterate through all columns that have been populated (from column 1 to the last used column).
-    clientReportSheet.setColumnWidth(
-      c,
-      clientReportSheet.getColumnWidth(c) + 60, // Increase the width of each column by 60 pixels to provide a visual margin for better readability.
+  if (currentCol > 1) {
+
+    clientReportSheet.autoResizeColumns(
+      1,
+      currentCol - 1
     );
+
+    // Adding a small visual margin
+    for (let c = 1; c < currentCol; c++) { // Iterate through all columns that have been populated (from column 1 to the last used column).
+      clientReportSheet.setColumnWidth(
+        c,
+        clientReportSheet.getColumnWidth(c) + 60, // Increase the width of each column by 60 pixels to provide a visual margin for better readability.
+      );
+    }
+
   }
+
+
 
   // -----------------------------------------------------------------------------
   // Adding Filter to the Client_Report Sheet, below Header Row 
@@ -256,6 +489,10 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
   // Apply an automatic filter to the report if at least one column exists
   // and there are enough rows to create a valid filter range.
   if (lastColUsed > 0 && lastRowUsed >= 2) {
+
+    if (clientReportSheet.getFilter()) {
+      clientReportSheet.getFilter().remove();
+    }
 
     clientReportSheet
       .getRange(
@@ -349,7 +586,11 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
   values.forEach((row) => {
 
   // Read the configured column name (Column A).
+
+  /***
   let columnName = String(row[0] || "").trim();
+  ***/
+  const originalColumnName = String(row[0] || "").trim();
 
   // This part shoud be recostructed because Column B has to with Seconday Service not the Main one
   // Read the associated service class (Column B).
@@ -387,42 +628,20 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
     service.toLowerCase()
   );
   // Service Name concadenation
+  
+  /***
   const primaryServiceName = (primaryServices[0] || "").toUpperCase();
   if (primaryServiceName) {
     columnName = `${primaryServiceName}_${columnName}`;
   }
-
-  // Prefix the column name with the service class unless the service is blank or classified as "General".
-  //if (serviceClass && serviceClass.toLowerCase() !== "general") {
-    // Trafigura: Sentence Case (e.g., "Sampling")
-    // Standard: UPPERCASE (e.g., "SAMPLING")
-    //const formattedServiceClass =
-      //trafiguraFlag === 1
-        //? serviceClass.charAt(0).toUpperCase() + serviceClass.slice(1).toLowerCase()
-        //: serviceClass.toUpperCase();
-    //columnName = `${formattedServiceClass}_${columnName}`;
-  //}                           
+  ***/
+  const colKey =
+  `${originalColumnName}|${primaryServices.join("|")}`
+    .toLowerCase();                          
 
     // -------------------------------------------------------------
     // FILTRO 1: EVALUACIÓN DE SERVICIO (Columna F -> row[1])
     // -------------------------------------------------------------
-    //const serviceClass = String(row[5] || "").trim();
-    //const serviceClassLower = serviceClass.toLowerCase();
-
-    // Si tiene asignado un serviceClass específico (que no sea vacío ni "general")
-    //if (serviceClassLower !== "" && serviceClassLower !== "general") {
-      // Admite celdas con servicios separados por comas (ej: "Sampling, Grading")
-      //const definedServices = serviceClassLower.split(",").map((s) => s.trim());
-
-      // Comprobar si coincide con alguno de los servicios confirmados en OperationSummary
-      //const isConfirmed = definedServices.some((svc) => {
-        //for (let confirmed of confirmedServices) {
-          //if (confirmed.includes(svc) || svc.includes(confirmed)) {
-            //return true;
-          //}
-        //}
-        //return false;
-      //});
 
     // Keep the field only when at least one of its Primary Services
     // is present in the confirmed services list.
@@ -457,11 +676,19 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
 
   // Create a case-insensitive lookup key to ensure that column names
   // differing only by letter case are treated as duplicates.
-  const colKey = columnName.toLowerCase();
+  //const colKey = columnName.toLowerCase();
 
   // Skip the current configuration row if the column name is blank
   // or has already been added to the mappings collection.
+  /**
   if (!columnName || seenColumnNames.has(colKey)) {
+    return;
+  }
+  */
+  if (
+    !originalColumnName ||
+    seenColumnNames.has(colKey)
+  ) {
     return;
   }
 
@@ -472,13 +699,11 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
   // building and formatting the Client_Report sheet.
 
   mappings.push({
-  columnName: columnName,
+  //columnName: columnName,
+  columnName: originalColumnName,
   validation: String(row[20] || "").trim(),
-  
   primaryServices: primaryServices,
   //serviceClass: serviceClass,
-
-  primaryServices: primaryServices,
   dateType: String(row[18] || "").trim(),
   formula: String(row[targetFormulaIndex] || "").trim(),
   calcFlag: String(row[19] || "").trim(),
@@ -486,44 +711,8 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
 
   });
 
-
-
-// Build a normalized service order list based on the confirmed
-// operations returned from OperationSummary.
-
-/*****
-const serviceOrder = Array.from(confirmedServices).map((s) =>
-  s.toLowerCase(),
-);
-
-// Sort mappings so that columns are grouped according to the
-// order of confirmed services defined in OperationSummary.
-mappings.sort((a, b) => {
-
-  // Find the position of the first column's service.
-  const idxA = serviceOrder.findIndex((s) =>
-    a.serviceClass.toLowerCase().includes(s),
-  );
-
-  // Find the position of the second column's service.
-  const idxB = serviceOrder.findIndex((s) =>
-    b.serviceClass.toLowerCase().includes(s),
-  );
-
-  // Preserve the confirmed service order in the final report layout.
-  return idxA - idxB;
-});
-*****/
-
 // Return the complete list of processed column mappings.
 return mappings;
 }
 
-// Retrieve the list of confirmed services from OperationSummary.
-// const confirmedServices = getConfirmedOperationsList();
 
-// Log the detected services for troubleshooting and validation.
-//console.log(
-//  "Confirmed services detected:",
-//  Array.from(confirmedServices)
-//);
