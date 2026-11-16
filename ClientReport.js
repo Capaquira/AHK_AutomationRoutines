@@ -128,13 +128,24 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
         .setVerticalAlignment("middle");
 
       // Formula row
-      reportSheet.getRange(2, reportCol).setValue("");
+      const formulaText = String(
+        mapping.formula || ""
+      ).trim();
 
-      if (mapping.formula) {
+      const normalizedFormula =
+        formulaText.toUpperCase();
+
+      if (
+        formulaText &&
+        normalizedFormula !== "=N/A" &&
+        normalizedFormula !== "=NA()" &&
+        normalizedFormula !== "N/A" &&
+        normalizedFormula !== "NA"
+      ) {
 
         reportSheet
           .getRange(2, reportCol)
-          .setFormula(mapping.formula);
+          .setFormula(formulaText);
 
       }
 
@@ -350,10 +361,29 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
         .setVerticalAlignment("middle"); // Center-align the header text vertically.
 
       // Set the validation value for the second row of the current column based on the mapping's validation property.
-      clientReportSheet.getRange(2, currentCol).setValue(""); // Set the second row to an empty string initially. This can be used for validation or additional information if needed.
-      if (mapping.formula) {
-        // If a formula is defined in the mapping, set it in the second row of the current column.
-        clientReportSheet.getRange(2, currentCol).setFormula(mapping.formula); // Set the formula in the second row of the current column.
+      clientReportSheet
+        .getRange(2, currentCol)
+        .setValue("");
+
+      const formulaText = String(
+        mapping.formula || ""
+      ).trim();
+
+      const normalizedFormula =
+        formulaText.toUpperCase();
+
+      if (
+        formulaText &&
+        normalizedFormula !== "=N/A" &&
+        normalizedFormula !== "=NA()" &&
+        normalizedFormula !== "N/A" &&
+        normalizedFormula !== "NA"
+      ) {
+
+        clientReportSheet
+          .getRange(2, currentCol)
+          .setFormula(formulaText);
+
       }
 
       // Set the number format for the data rows (from row 3 to the last row)
