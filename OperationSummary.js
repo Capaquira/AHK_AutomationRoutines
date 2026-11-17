@@ -1,3 +1,44 @@
+function getConfirmedPrimaryServices() {
+
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getActiveSheet();
+
+  const primaryServices = [];
+
+  const reception =
+    String(sheet.getRange("E24").getValue())
+      .trim()
+      .toLowerCase();
+
+  const intermediate =
+    String(sheet.getRange("E28").getValue())
+      .trim()
+      .toLowerCase();
+
+  const loading =
+    String(sheet.getRange("E31").getValue())
+      .trim()
+      .toLowerCase();
+
+  if (reception === "yes") {
+    primaryServices.push("Reception");
+  }
+
+  if (intermediate === "yes") {
+    primaryServices.push("Intermediate");
+  }
+
+  if (loading === "yes") {
+    primaryServices.push("Loading");
+  }
+
+  return primaryServices;
+}
+
+
+
 
 function getConfirmedOperationsSummary() {
   const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();

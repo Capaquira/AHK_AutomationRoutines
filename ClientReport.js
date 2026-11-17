@@ -78,12 +78,15 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
   const mappings = loadServiceMappings(trafiguraFlag, excelFlag); // Load the column configuration from Service_Config (Now from Louis Column Service Mappings), filtered by confirmed services and avoiding duplicates.
 
   // Retrieve the confirmed Primary Services from OperationSummary.
-  const confirmedPrimaryServices = Array.from(
-    getConfirmedOperationsList()
-  );
+  const confirmedPrimaryServices = getConfirmedPrimaryServices();
+
+  // Confirmation if only one service has choosen
+  const hasSingleService =
+  confirmedPrimaryServices.length === 1;
 
   // Create one Client_Report sheet for each confirmed Primary Service
 
+/***
   confirmedPrimaryServices.forEach(service => {
 
     const formattedService =
@@ -97,168 +100,198 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
     }
 
   });
+***/
+
+  if (!hasSingleService) {
+
+    confirmedPrimaryServices.forEach(service => {
+
+      const formattedService =
+        service.charAt(0).toUpperCase() +
+        service.slice(1).toLowerCase();
+
+      const sheetName =
+        `Client_Report_${formattedService}`;
+
+      if (!new_google_sheet.getSheetByName(sheetName)) {
+        new_google_sheet.insertSheet(sheetName);
+      }
+
+    });
+
+    
+
+  }
 
   // -----------------------------------------------------------------------------
   // Populate Client_Report_<PrimaryService> sheets
   // -----------------------------------------------------------------------------
 
-  confirmedPrimaryServices.forEach(service => {
+  if (!hasSingleService) {
 
-    const formattedService =
-      service.charAt(0).toUpperCase() +
-      service.slice(1).toLowerCase();
+    confirmedPrimaryServices.forEach(service => {
 
-    const reportSheet =
-      new_google_sheet.getSheetByName(
-        `Client_Report_${formattedService}`
-      );
+      const formattedService =
+        service.charAt(0).toUpperCase() +
+        service.slice(1).toLowerCase();
 
-    const headers = [];
-    const formulas = [];
+      const reportSheet =
+        new_google_sheet.getSheetByName(
+          `Client_Report_${formattedService}`
+        );
 
-    let reportCol = 1;
+      if (!reportSheet) {
 
-    const reportMaxRows =
-      reportSheet.getMaxRows();
-
-    
-    mappings.forEach(mapping => {
-
-      // Skip columns that do not belong to the current service
-      if (!mapping.primaryServices.includes(formattedService)) {
-        return;
-      }
-
-      const headerName =
-        `${formattedService.toUpperCase()}_${mapping.columnName}`;
-      
-      headers.push(headerName);
-
-
-
-      const formulaText = String(
-        mapping.formula || ""
-      ).trim();
-
-      const normalizedFormula =
-        formulaText.toUpperCase();
-
-      if (
-        formulaText &&
-        !INVALID_FORMULAS.includes(normalizedFormula)
-      ) {
-
-        formulas.push(formulaText);
-
-      } else {
-
-        formulas.push("");
-
-      }
-
-      populateReportColumn(
-        reportSheet,
-        reportCol,
-        mapping,
-        reportMaxRows
-      );
-
-      reportCol++;
-
-    });
-
-
-
-
-    if (headers.length > 0) {
-
-      reportSheet
-        .getRange(
-          1,
-          1,
-          1,
-          headers.length
-        )
-        .setValues([headers])
-        .setFontSize(10)
-        .setFontWeight("bold")
-        .setFontColor("#ffffff")
-        .setHorizontalAlignment("center")
-        .setVerticalAlignment("middle");
-
-    }
-
-    if (formulas.length > 0) {
-
-      reportSheet
-        .getRange(
-          2,
-          1,
-          1,
-          formulas.length
-        )
-        .setFormulas([formulas]);
-
-    }
-
-    // -----------------------------------------------------------------------------
-    // Resize Columns
-    // -----------------------------------------------------------------------------
-
-    if (reportCol > 1) {
-
-      reportSheet.autoResizeColumns(
-        1,
-        reportCol - 1
-      );
-
-/***
-      for (let c = 1; c < reportCol; c++) {
-
-        reportSheet.setColumnWidth(
-          c,
-          reportSheet.getColumnWidth(c) + 60
+        throw new Error(
+          "[ClientReport.gs | createClientReportColumns]\n" +
+          "Sheet 'Client_Report_" +
+          formattedService +
+          "' was not found before calling getMaxRows()."
         );
 
       }
-***/
 
-    }
+      const headers = [];
+      const formulas = [];
 
-    // -----------------------------------------------------------------------------
-    // Add Filter
-    // -----------------------------------------------------------------------------
+      let reportCol = 1;
 
-    const reportLastCol =
-      reportSheet.getLastColumn();
+      const reportMaxRows =
+        reportSheet.getMaxRows();
 
-    const reportLastRow =
-      reportSheet.getLastRow();
+      
+      mappings.forEach(mapping => {
 
-    if (reportSheet.getFilter()) {
-      reportSheet.getFilter().remove();
-    }
+        // Skip columns that do not belong to the current service
+        if (!mapping.primaryServices.includes(formattedService)) {
+          return;
+        }
 
-    if (
-      reportLastCol > 0 &&
-      reportLastRow >= 2
-    ) {
+        const headerName =
+          `${formattedService.toUpperCase()}_${mapping.columnName}`;
+        
+        headers.push(headerName);
 
-      reportSheet
-        .getRange(
-          2,
+
+
+        const formulaText = String(
+          mapping.formula || ""
+        ).trim();
+
+        const normalizedFormula =
+          formulaText.toUpperCase();
+
+        if (
+          formulaText &&
+          !INVALID_FORMULAS.includes(normalizedFormula)
+        ) {
+
+          formulas.push(formulaText);
+
+        } else {
+
+          formulas.push("");
+
+        }
+
+        populateReportColumn(
+          reportSheet,
+          reportCol,
+          mapping,
+          reportMaxRows
+        );
+
+        reportCol++;
+
+      });
+
+      if (headers.length > 0) {
+
+        reportSheet
+          .getRange(
+            1,
+            1,
+            1,
+            headers.length
+          )
+          .setValues([headers])
+          .setFontSize(10)
+          .setFontWeight("bold")
+          .setFontColor("#ffffff")
+          .setHorizontalAlignment("center")
+          .setVerticalAlignment("middle");
+
+      }
+
+      if (formulas.length > 0) {
+
+        reportSheet
+          .getRange(
+            2,
+            1,
+            1,
+            formulas.length
+          )
+          .setFormulas([formulas]);
+
+      }
+
+      // -----------------------------------------------------------------------------
+      // Resize Columns
+      // -----------------------------------------------------------------------------
+
+      if (reportCol > 1) {
+
+        reportSheet.autoResizeColumns(
           1,
-          reportLastRow - 1,
-          reportLastCol
-        )
-        .createFilter();
+          reportCol - 1
+        );
 
-    }
+      }
 
-  });
+      // -----------------------------------------------------------------------------
+      // Add Filter
+      // -----------------------------------------------------------------------------
 
+      const reportLastCol =
+        reportSheet.getLastColumn();
 
+      const reportLastRow =
+        reportSheet.getLastRow();
+
+      if (reportSheet.getFilter()) {
+        reportSheet.getFilter().remove();
+      }
+
+      if (
+        reportLastCol > 0 &&
+        reportLastRow >= 2
+      ) {
+
+        reportSheet
+          .getRange(
+            2,
+            1,
+            reportLastRow - 1,
+            reportLastCol
+          )
+          .createFilter();
+
+      }
+
+    });
+
+  }
   //population dynamically.
+
+  if (!clientReportSheet) {
+
+    throw new Error(
+      "[ClientReport.gs | createClientReportColumns]\n" +
+      "Client_Report sheet is null before calling getMaxRows()."
+    );
+
+  }
 
   const clientReportMaxRows =
     clientReportSheet.getMaxRows();
@@ -424,6 +457,17 @@ function populateReportColumn(
   mapping,
   maxRows
 ) {
+
+
+  if (!targetSheet) {
+
+    throw new Error(
+      "[ClientReport.gs | populateReportColumn]\n" +
+      "targetSheet is null.\n" +
+      "Column: " + mapping.columnName
+    );
+
+  }
 
   // Date / Number formatting
 
