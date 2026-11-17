@@ -6,6 +6,14 @@
 ///          overrides when confirmed and filtering by active services.
 /// ===============================================================
 
+
+const INVALID_FORMULAS = [
+  "=N/A",
+  "=NA()",
+  "N/A",
+  "NA"
+];
+
 /**
  * Builds the Client_Report sheet structure.
  *
@@ -63,7 +71,6 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
   // -- Column Widths and Auto-Resize --
   // Column numbering starts at 1 (Column A) and continues through the last
   // available column in the sheet (maxColumns).
-  for (let c = 1; c <= maxColumns; c++) {}
 
   // -----------------------------------------------------------------------------
   // CARGA DE CONFIGURACIÓN CON FILTRO DE SERVICIOS
@@ -106,8 +113,15 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
         `Client_Report_${formattedService}`
       );
 
+    const headers = [];
+    const formulas = [];
+
     let reportCol = 1;
 
+    const reportMaxRows =
+      reportSheet.getMaxRows();
+
+    
     mappings.forEach(mapping => {
 
       // Skip columns that do not belong to the current service
@@ -117,17 +131,11 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
 
       const headerName =
         `${formattedService.toUpperCase()}_${mapping.columnName}`;
+      
+      headers.push(headerName);
 
-      reportSheet
-        .getRange(1, reportCol)
-        .setValue(headerName)
-        .setFontSize(10)
-        .setFontWeight("bold")
-        .setFontColor("#ffffff")
-        .setHorizontalAlignment("center")
-        .setVerticalAlignment("middle");
 
-      // Formula row
+
       const formulaText = String(
         mapping.formula || ""
       ).trim();
@@ -137,136 +145,61 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
 
       if (
         formulaText &&
-        normalizedFormula !== "=N/A" &&
-        normalizedFormula !== "=NA()" &&
-        normalizedFormula !== "N/A" &&
-        normalizedFormula !== "NA"
+        !INVALID_FORMULAS.includes(normalizedFormula)
       ) {
 
-        reportSheet
-          .getRange(2, reportCol)
-          .setFormula(formulaText);
-
-      }
-
-      
-
-      const reportMaxRows =
-        reportSheet.getMaxRows();
-
-      if (reportMaxRows > 2) {
-
-        const dataRange =
-          reportSheet.getRange(
-            3,
-            reportCol,
-            reportMaxRows - 2,
-            1
-          );
-
-        const dateType = String(
-          mapping.dateType || ""
-        )
-          .trim()
-          .toLowerCase();
-
-        if (dateType === "date") {
-
-          dataRange
-            .setNumberFormat("yyyy-MM-dd")
-            .setDataValidation(
-              SpreadsheetApp
-                .newDataValidation()
-                .requireDate()
-                .build()
-            );
-
-        } else if (dateType === "number") {
-
-          dataRange.setNumberFormat("0.00");
-
-        }
-
-      }
-
-
-      if (mapping.calcFlag === "Calculated") {
-
-        reportSheet.getRange(
-          1,
-          reportCol,
-          2,
-          1
-        ).setBackground("#e06666");
-
-        const altRows = reportMaxRows - 3;
-
-        if (altRows > 0) {
-
-          const colorsRedWhite =
-            Array.from(
-              { length: altRows },
-              (_, i) => [
-                i % 2 === 0
-                  ? "#fce8e6"
-                  : "#ffffff"
-              ]
-            );
-
-          reportSheet
-            .getRange(
-              4,
-              reportCol,
-              altRows,
-              1
-            )
-            .setBackgrounds(
-              colorsRedWhite
-            );
-
-        }
+        formulas.push(formulaText);
 
       } else {
 
-        reportSheet.getRange(
-          1,
-          reportCol,
-          2,
-          1
-        ).setBackground("#a9a9a9");
-
-        const altRows = reportMaxRows - 3;
-
-        if (altRows > 0) {
-
-          const colorsGrayWhite =
-            Array.from(
-              { length: altRows },
-              (_, i) => [
-                i % 2 === 0
-                  ? "#e0e0e0"
-                  : "#ffffff"
-              ]
-            );
-
-          reportSheet
-            .getRange(
-              4,
-              reportCol,
-              altRows,
-              1
-            )
-            .setBackgrounds(
-              colorsGrayWhite
-            );
-
-        }
+        formulas.push("");
 
       }
+
+      populateReportColumn(
+        reportSheet,
+        reportCol,
+        mapping,
+        reportMaxRows
+      );
 
       reportCol++;
 
     });
+
+
+
+
+    if (headers.length > 0) {
+
+      reportSheet
+        .getRange(
+          1,
+          1,
+          1,
+          headers.length
+        )
+        .setValues([headers])
+        .setFontSize(10)
+        .setFontWeight("bold")
+        .setFontColor("#ffffff")
+        .setHorizontalAlignment("center")
+        .setVerticalAlignment("middle");
+
+    }
+
+    if (formulas.length > 0) {
+
+      reportSheet
+        .getRange(
+          2,
+          1,
+          1,
+          formulas.length
+        )
+        .setFormulas([formulas]);
+
+    }
 
     // -----------------------------------------------------------------------------
     // Resize Columns
@@ -279,6 +212,7 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
         reportCol - 1
       );
 
+/***
       for (let c = 1; c < reportCol; c++) {
 
         reportSheet.setColumnWidth(
@@ -287,6 +221,7 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
         );
 
       }
+***/
 
     }
 
@@ -322,18 +257,23 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
 
   });
 
-  const maxRows = clientReportSheet.getMaxRows(); // Get the total number of rows in the sheet to apply formatting and data population dynamically.
 
-  let currentCol = 1; // Initialize the current column index to 1 (Column A) for populating the Client_Report sheet.
+  //population dynamically.
+
+  const clientReportMaxRows =
+    clientReportSheet.getMaxRows();
+
+  const clientHeaders = [];
+  const clientFormulas = [];
+
+  let currentCol = 1;
 
   const confirmedPrimaryServicesLower =
     confirmedPrimaryServices.map(service =>
       service.toLowerCase()
     );
 
-  
   mappings.forEach((mapping) => {
-  
 
     mapping.primaryServices.forEach((service) => {
 
@@ -347,23 +287,8 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
 
       const headerName =
         `${service.toUpperCase()}_${mapping.columnName}`;
-
-      // Iterate through each mapping configuration
-
-      // Set the header value for the current column based on the mapping's columnName.
-      clientReportSheet
-        .getRange(1, currentCol) // Row 1, current column
-        .setValue(headerName) // Set the header text to the column name from the mapping.
-        .setFontSize(10) // Set the font size
-        .setFontWeight("bold") // Make the header text bold.
-        .setFontColor("#ffffff")
-        .setHorizontalAlignment("center") // Center-align the header text horizontally.
-        .setVerticalAlignment("middle"); // Center-align the header text vertically.
-
-      // Set the validation value for the second row of the current column based on the mapping's validation property.
-      clientReportSheet
-        .getRange(2, currentCol)
-        .setValue("");
+      
+      clientHeaders.push(headerName);
 
       const formulaText = String(
         mapping.formula || ""
@@ -374,117 +299,63 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
 
       if (
         formulaText &&
-        normalizedFormula !== "=N/A" &&
-        normalizedFormula !== "=NA()" &&
-        normalizedFormula !== "N/A" &&
-        normalizedFormula !== "NA"
+        !INVALID_FORMULAS.includes(normalizedFormula)
       ) {
 
-        clientReportSheet
-          .getRange(2, currentCol)
-          .setFormula(formulaText);
-
-      }
-
-      // Set the number format for the data rows (from row 3 to the last row)
-      // based on the mapping's configured data type.
-      if (maxRows > 2) {
-        // Select the data range in the current column, starting at row 3.
-        const dataRange = clientReportSheet.getRange(
-          3, // Start row
-          currentCol, // Current column
-          maxRows - 2, // Number of rows from row 3 to the last row
-          1, // Single column
-        );
-        
-
-        // Retrieve the configured data type.
-        // Using String(... || "") prevents errors if dateType is null,
-        // undefined, or empty before converting to lowercase.
-        const dateType = String(mapping.dateType || "")
-          .trim()
-          .toLowerCase();
-
-        // Apply formatting and validation rules based on the configured data type.
-        if (dateType === "date") {
-          dataRange
-            .setNumberFormat("yyyy-MM-dd") // Display dates using ISO format (YYYY-MM-DD)
-            .setDataValidation(
-              // Restrict user input to valid date values
-              SpreadsheetApp.newDataValidation()
-                .requireDate() // Only valid dates are allowed
-                .build(),
-            );
-        } else if (dateType === "number") {
-          dataRange.setNumberFormat("0.00"); // Display numeric values with two decimal places
-        }
-      }
-      
-
-      // -----------------------------------------------------------------------------
-      // COLOR CODING BASED ON CALCULATION FLAG: CALCULATED VS MANUAL INPUT FIELDS
-      // -----------------------------------------------------------------------------
-
-      // If the column is marked as "Calculated", apply a red header background and alternating row colors for better visual distinction.
-      if (mapping.calcFlag === "Calculated") {
-        
-        // Header and Formula Row Background Color
-        clientReportSheet.getRange(
-          1, // Row 1
-          currentCol, // Current column
-          2, // Rows 1 and 2
-          1 // Single column
-        ).setBackground("#e06666"); // Set the header background color to red for calculated fields.
-
-        // Data Rows Background Color (Alternating Red and White)
-        const altRows = maxRows - 3; // Calculate the number of rows below the header and validation rows for alternating colors.
-        if (altRows > 0) { // If there are rows below the header and validation rows, apply alternating colors for better readability.
-          const colorsRedWhite = Array.from({ length: altRows }, (_, i) => [
-            i % 2 === 0 ? "#fce8e6" : "#ffffff", // Alternate between light red and white for calculated fields
-          ]);
-          clientReportSheet // Select the range of data rows in the current column and apply the alternating background colors.
-            .getRange(
-              4, // Start row 4 because the 3rd raw is white for all cases
-              currentCol, // Current column
-              altRows, // Number of rows from row 4 to the last row
-              1 // Single column
-            )
-            .setBackgrounds(colorsRedWhite); // Set the alternating background colors for calculated fields.
-        }
+        clientFormulas.push(formulaText);
 
       } else {
-        // For non-calculated fields, apply a gray header background and alternating row colors for better visual distinction.
-        clientReportSheet.getRange(
-          1, // Row 1
-          currentCol, // Current column of the iteration
-          2, // Rows 1 and 2
-          1 // Single column (the current column, all column cannot be colored at one because some columns are calculated and others are not)
-        ).setBackground("#a9a9a9"); // Set the header background color to gray for non-calculated fields.
 
-        // Data Rows Background Color (Alternating Gray and White)
-        const altRows = maxRows - 3; // Calculate the number of rows below the header and validation rows for alternating colors.
-        if (altRows > 0) { // If there are rows below the header and validation rows, apply alternating colors for better readability.
-          const colorsGrayWhite = Array.from({ length: altRows }, (_, i) => [
-            i % 2 === 0 ? "#e0e0e0" : "#ffffff", // Alternate between light gray and white for non-calculated fields
-          ]);
-          clientReportSheet // Select the range of data rows in the current column and apply the alternating background colors.
-            .getRange(
-              4, // Start row 4 because the 3rd row is white for all cases
-              currentCol, // Current column of the iteration
-              altRows, // Number of rows from row 4 to the last row
-              1 // Single column (If a value  diferente than 1 is used like 5, it will color the following 4 columns as well, which is not desired)
-            )
-            .setBackgrounds(colorsGrayWhite); // Set the alternating background colors for non-calculated fields.
-        }
+        clientFormulas.push("");
+
       }
 
-    
+      // Iterate through each mapping configuration
+
+      // Set the header value for the current column based on the mapping's columnName.
+
+      populateReportColumn(
+        clientReportSheet,
+        currentCol,
+        mapping,
+        clientReportMaxRows
+      );
+
       currentCol++; // Move to the next column for the next iteration of the mapping configuration.
     });
 
   });
 
+  if (clientHeaders.length > 0) {
 
+    clientReportSheet
+      .getRange(
+        1,
+        1,
+        1,
+        clientHeaders.length
+      )
+      .setValues([clientHeaders])
+      .setFontSize(10)
+      .setFontWeight("bold")
+      .setFontColor("#ffffff")
+      .setHorizontalAlignment("center")
+      .setVerticalAlignment("middle");
+
+  }
+
+  if (clientFormulas.length > 0) {
+
+    clientReportSheet
+      .getRange(
+        2,
+        1,
+        1,
+        clientFormulas.length
+      )
+      .setFormulas([clientFormulas]);
+
+  }
 
   // -----------------------------------------------------------------------------
   // Resizing Columns and Adding Visual Margin
@@ -498,6 +369,8 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
       currentCol - 1
     );
 
+
+/***
     // Adding a small visual margin
     for (let c = 1; c < currentCol; c++) { // Iterate through all columns that have been populated (from column 1 to the last used column).
       clientReportSheet.setColumnWidth(
@@ -505,6 +378,7 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
         clientReportSheet.getColumnWidth(c) + 60, // Increase the width of each column by 60 pixels to provide a visual margin for better readability.
       );
     }
+***/
 
   }
 
@@ -534,6 +408,151 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
       .createFilter();
   }
 }
+
+/**
+ * Populates and formats a report column.
+ *
+ * @param {Sheet} targetSheet
+ * @param {number} targetCol
+ * @param {string} headerName
+ * @param {Object} mapping
+ * @param {number} maxRows
+ */
+function populateReportColumn(
+  targetSheet,
+  targetCol,
+  mapping,
+  maxRows
+) {
+
+  // Date / Number formatting
+
+  if (maxRows > 2) {
+
+    const dataRange =
+      targetSheet.getRange(
+        3,
+        targetCol,
+        maxRows - 2,
+        1
+      );
+
+    const dateType = String(
+      mapping.dateType || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    if (dateType === "date") {
+
+      dataRange
+        .setNumberFormat("yyyy-MM-dd")
+        .setDataValidation(
+          SpreadsheetApp
+            .newDataValidation()
+            .requireDate()
+            .build()
+        );
+
+    } else if (
+      dateType === "number"
+    ) {
+
+      dataRange.setNumberFormat(
+        "0.00"
+      );
+
+    }
+
+  }
+
+  const calcFlag = String(
+    mapping.calcFlag || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  const isCalculated =
+    calcFlag === "calculated" ||
+    calcFlag === "yes";
+
+  if (isCalculated) {
+
+    targetSheet.getRange(
+      1,
+      targetCol,
+      2,
+      1
+    ).setBackground("#e06666");
+
+    const altRows = maxRows - 3;
+
+    if (altRows > 0) {
+
+      const colorsRedWhite =
+        Array.from(
+          { length: altRows },
+          (_, i) => [
+            i % 2 === 0
+              ? "#fce8e6"
+              : "#ffffff"
+          ]
+        );
+
+      targetSheet
+        .getRange(
+          4,
+          targetCol,
+          altRows,
+          1
+        )
+        .setBackgrounds(
+          colorsRedWhite
+        );
+
+    }
+
+  } else {
+
+    targetSheet.getRange(
+      1,
+      targetCol,
+      2,
+      1
+    ).setBackground("#a9a9a9");
+
+    const altRows = maxRows - 3;
+
+    if (altRows > 0) {
+
+      const colorsGrayWhite =
+        Array.from(
+          { length: altRows },
+          (_, i) => [
+            i % 2 === 0
+              ? "#e0e0e0"
+              : "#ffffff"
+          ]
+        );
+
+      targetSheet
+        .getRange(
+          4,
+          targetCol,
+          altRows,
+          1
+        )
+        .setBackgrounds(
+          colorsGrayWhite
+        );
+
+    }
+
+  }
+
+}
+
+
 
 /**
  * Reads metadata configuration from Service_Config.
