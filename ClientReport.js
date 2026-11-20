@@ -80,6 +80,9 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
   // Retrieve the confirmed Primary Services from OperationSummary.
   const confirmedPrimaryServices = getConfirmedPrimaryServices();
 
+  // Retrive secondary services
+  //const confirmedPrimarySecondaryServices = getConfirmedPrimarySecondaryServices();
+
   // Confirmation if only one service has choosen
   const hasSingleService =
   confirmedPrimaryServices.length === 1;
@@ -550,9 +553,12 @@ function populateReportColumn(
           altRows,
           1
         )
+// Commented to reduce time
+/***
         .setBackgrounds(
           colorsRedWhite
         );
+***/
 
     }
 
@@ -586,9 +592,12 @@ function populateReportColumn(
           altRows,
           1
         )
+// Commented to reduce time
+/***
         .setBackgrounds(
           colorsGrayWhite
         );
+***/
 
     }
 
@@ -642,6 +651,9 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
 
   // Confirmed services retrieval
   const confirmedServices = getConfirmedOperationsList();
+  // Test retrival secondary services
+  const confirmedPrimarySecondaryServices = getConfirmedPrimarySecondaryServices();
+
   // Filter out duplicate column names
   const seenColumnNames = new Set();
 
@@ -687,7 +699,9 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
 
   // This part shoud be recostructed because Column B has to with Seconday Service not the Main one
   // Read the associated service class (Column B).
-  //const serviceClass = String(row[1] || "").trim();
+
+  // Activiated to see segregation
+  const serviceClass = String(row[1] || "").trim();
 
   // Determine which Primary Service(s) this field belongs to.
   const receptionFlag = String(
@@ -703,6 +717,12 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
   ).trim().toLowerCase();
 
   const primaryServices = [];
+
+  // Test secondary service
+  const serviceClassLower =
+  serviceClass
+    .trim()
+    .toLowerCase();
 
   if (receptionFlag === "yes") {
     primaryServices.push("Reception");
@@ -761,7 +781,34 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
     if (!isConfirmed) {
       return;
     }
+  // Test Secondary Service
+  let secondaryServiceConfirmed =
+    serviceClassLower === "prestaging";
 
+  if (!secondaryServiceConfirmed) {
+
+    secondaryServiceConfirmed =
+      primaryServices.some(
+        primaryService => {
+
+          const confirmedSet =
+            confirmedPrimarySecondaryServices[
+              primaryService
+            ];
+
+          return (
+            confirmedSet &&
+            confirmedSet.has(serviceClass)
+          );
+
+        }
+      );
+
+  }
+
+  if (!secondaryServiceConfirmed) {
+    return;
+  }
 
   // -------------------------------------------------------------
   // FILTER 2: SKIP EMPTY OR DUPLICATE COLUMN NAMES
@@ -787,19 +834,28 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
 
   // Register the column name to prevent duplicate entries.
   seenColumnNames.add(colKey);
+ 
+
+  // Secondary service test
+  console.log({
+    column: originalColumnName,
+    serviceClass: serviceClass,
+    primaryServices: primaryServices
+  });
 
   // Store the column configuration metadata for later use when
   // building and formatting the Client_Report sheet.
 
   mappings.push({
   //columnName: columnName,
-  columnName: originalColumnName,
-  validation: String(row[20] || "").trim(),
-  primaryServices: primaryServices,
-  //serviceClass: serviceClass,
-  dateType: String(row[18] || "").trim(),
-  formula: String(row[targetFormulaIndex] || "").trim(),
-  calcFlag: String(row[19] || "").trim(),
+    columnName: originalColumnName,
+    serviceClass: serviceClass,
+    validation: String(row[20] || "").trim(),
+    primaryServices: primaryServices,
+    //serviceClass: serviceClass,
+    dateType: String(row[18] || "").trim(),
+    formula: String(row[targetFormulaIndex] || "").trim(),
+    calcFlag: String(row[19] || "").trim(),
   });
 
   });
@@ -808,4 +864,19 @@ function loadServiceMappings(trafiguraFlag, excelFlag) {
 return mappings;
 }
 
+
+function debugServiceClasses() {
+
+  const mappings =
+    loadServiceMappings(0, 0);
+
+  return mappings.map(mapping => ({
+    columnName:
+      mapping.columnName,
+
+    serviceClass:
+      mapping.serviceClass
+  }));
+
+}
 
