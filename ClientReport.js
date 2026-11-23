@@ -81,7 +81,7 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
   const confirmedPrimaryServices = getConfirmedPrimaryServices();
 
   // Retrive secondary services
-  //const confirmedPrimarySecondaryServices = getConfirmedPrimarySecondaryServices();
+  const confirmedPrimarySecondaryServices = getConfirmedPrimarySecondaryServices();
 
   // Confirmation if only one service has choosen
   const hasSingleService =
@@ -169,6 +169,30 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
         if (!mapping.primaryServices.includes(formattedService)) {
           return;
         }
+
+
+        const confirmedSet =
+          confirmedPrimarySecondaryServices[
+            formattedService
+          ];
+
+        const serviceClassLower =
+          String(mapping.serviceClass || "")
+            .trim()
+            .toLowerCase();
+
+        if (
+          serviceClassLower !== "prestaging" &&
+          (
+            !confirmedSet ||
+            !confirmedSet.has(mapping.serviceClass)
+          )
+        ) {
+          return;
+        }
+
+
+
 
         const headerName =
           `${formattedService.toUpperCase()}_${mapping.columnName}`;
@@ -320,6 +344,31 @@ function createClientReportColumns(new_google_sheet, flag_TR, flag_EX) {
       ) {
         return;
       }
+
+
+      // Filter to avoid cross funtinality
+      const confirmedSet =
+        confirmedPrimarySecondaryServices[
+          service
+        ];
+
+      const serviceClassLower =
+        String(mapping.serviceClass || "")
+          .trim()
+          .toLowerCase();
+
+      if (
+        serviceClassLower !== "prestaging" &&
+        (
+          !confirmedSet ||
+          !confirmedSet.has(mapping.serviceClass)
+        )
+      ) {
+        return;
+      }
+
+
+
 
       const headerName =
         `${service.toUpperCase()}_${mapping.columnName}`;

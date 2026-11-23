@@ -1,45 +1,3 @@
-function getConfirmedPrimaryServices() {
-
-  const sheet =
-    SpreadsheetApp
-      .getActiveSpreadsheet()
-      .getActiveSheet();
-
-  const primaryServices = [];
-
-  const reception =
-    String(sheet.getRange("E24").getValue())
-      .trim()
-      .toLowerCase();
-
-  const intermediate =
-    String(sheet.getRange("E28").getValue())
-      .trim()
-      .toLowerCase();
-
-  const loading =
-    String(sheet.getRange("E31").getValue())
-      .trim()
-      .toLowerCase();
-
-  if (reception === "yes") {
-    primaryServices.push("Reception");
-  }
-
-  if (intermediate === "yes") {
-    primaryServices.push("Intermediate");
-  }
-
-  if (loading === "yes") {
-    primaryServices.push("Loading");
-  }
-
-  return primaryServices;
-}
-
-
-
-
 function getConfirmedOperationsSummary() {
   const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
 
@@ -70,7 +28,13 @@ function getConfirmedOperationsSummary() {
     }
 
     if (specification) {
-      specification.split(',').map(s => s.trim()).forEach(spec => {
+
+        specification
+          .split(',')
+          .map(spec => spec.trim())
+          .filter(Boolean)
+          .forEach(spec => {
+
         const key = spec; // Reception, Loading, Stand-alone
         if (!serviceMap.has(key)) {
           serviceMap.set(key, new Set());
@@ -110,7 +74,11 @@ function getConfirmedOperationsSummary() {
 }
 
 function formatNaturalList(items) {
-  if (!items || items.length === 0) return '';
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return "";
+  }
+
   if (items.length === 1) return items[0];
   if (items.length === 2) return `${items[0]} and ${items[1]}`;
   
@@ -119,10 +87,17 @@ function formatNaturalList(items) {
   return `${initialItems} and ${lastItem}`;
 }
 
+
 /**
- * Extrae y retorna un Set de identificadores de servicios confirmados en minúsculas
- * evaluando exactamente el mismo criterio del rango 68-99.
- * @returns {Set<string>} Conjunto con las claves de servicios confirmados.
+ * Returns all confirmed operation identifiers used by
+ * legacy filtering logic.
+ *
+ * Includes:
+ * - Primary Services
+ * - Operation descriptions
+ * - Specifications
+ *
+ * @returns {Set<string>}
  */
 function getConfirmedOperationsList() {
   const activeSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -161,8 +136,14 @@ function getConfirmedOperationsList() {
 
     // Si tiene especificación (ej. Stand-alone, Reception, etc.) registrarla también
     if (specification) {
-      specification.split(',').forEach(spec => {
-        confirmedKeys.add(spec.trim().toLowerCase());
+
+      specification
+        .split(',')
+        .map(spec => spec.trim())
+        .filter(Boolean)
+        .forEach(spec => {
+
+        confirmedKeys.add(spec.toLowerCase());
       });
     }
   }
@@ -171,4 +152,262 @@ function getConfirmedOperationsList() {
 }
 
 
+/*** Trird Part of the code ***/
+
+
+function getConfirmedPrimaryServices() {
+
+  const sheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getActiveSheet();
+
+  const primaryServices = [];
+
+  const reception =
+    String(sheet.getRange("E24").getValue())
+      .trim()
+      .toLowerCase();
+
+  const intermediate =
+    String(sheet.getRange("E28").getValue())
+      .trim()
+      .toLowerCase();
+
+  const loading =
+    String(sheet.getRange("E31").getValue())
+      .trim()
+      .toLowerCase();
+
+  if (reception === "yes") {
+    primaryServices.push("Reception");
+  }
+
+  if (intermediate === "yes") {
+    primaryServices.push("Intermediate");
+  }
+
+  if (loading === "yes") {
+    primaryServices.push("Loading");
+  }
+
+  return primaryServices;
+}
+
+/*** Forth Part */
+// -----------------------------------------------------------------------------
+// Secondary Service Normalization
+// Converts Operation Summary descriptions into Service_Config values
+// -----------------------------------------------------------------------------
+function normalizeSecondaryService(descriptionRaw) {
+
+  const text = String(descriptionRaw || "")
+    .trim()
+    .toLowerCase();
+
+  if (text.includes("weighing - platform scale")) {
+    return "Weighing - Platform Scale";
+  }
+
+  if (text.includes("weighing - weighbridge")) {
+    return "Weighing - Weighbridge";
+  }
+
+  if (text.includes("3rd party")) {
+    return "Advised Weights";
+  }
+
+  if (text.includes("mine weights")) {
+    return "Mine weights";
+  }
+
+  if (text.includes("visual inspection")) {
+    return "Visual Inspection";
+  }
+
+  if (text.includes("transport unit")) {
+    return "Transport unit";
+  }
+
+  if (text.includes("unit seals")) {
+    return "Unit seals";
+  }
+
+  if (text.includes("inspected vessel loading")) {
+    return "Vessel loading";
+  }
+
+  if (text.includes("advised vessel info")) {
+    return "Advised vessel info";
+  }
+
+  if (text.startsWith("sampling")) {
+    return "Sampling";
+  }
+
+  if (text.startsWith("fractions portions")) {
+    return "Fractions portions";
+  }
+
+  if (text.startsWith("grading")) {
+    return "Grading";
+  }
+
+  if (text.startsWith("radiation")) {
+    return "Radiation";
+  }
+
+  if (text.startsWith("reweigh")) {
+    return "Reweighing";
+  }
+
+  if (text.startsWith("bagging")) {
+    return "Bagging";
+  }
+
+  if (text.startsWith("de-bagging")) {
+    return "Debagging";
+  }
+
+  if (text.startsWith("blending")) {
+    return "Blending";
+  }
+
+  if (text.startsWith("stock inspection")) {
+    return "Stock inspection";
+  }
+
+  return null;
+
+}
+
+// Secondary Service
+/**
+ * Returns confirmed Secondary Services grouped by
+ * Primary Service.
+ *
+ * Example:
+ * {
+ *   Reception: Set([...]),
+ *   Intermediate: Set([...]),
+ *   Loading: Set([...])
+ * }
+ */
+function getConfirmedPrimarySecondaryServices() {
+
+  const activeSheet =
+    SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getActiveSheet();
+
+  const data =
+    activeSheet
+      .getRange(
+        68,
+        2,
+        32,
+        5
+      )
+      .getValues();
+
+  const services = {
+    Reception: new Set(),
+    Intermediate: new Set(),
+    Loading: new Set()
+  };
+
+  let currentPrimaryService = null;
+  let currentGroupConfirmed = false;
+
+  data.forEach(row => {
+
+    const descriptionRaw =
+      String(row[0] || "")
+        .trim();
+
+    const confirmation =
+      String(row[3] || "")
+        .trim()
+        .toLowerCase();
+
+    const descriptionLower =
+      descriptionRaw.toLowerCase();
+
+    // ----------------------------------------------------"stock inspection / holding certificate" ||
+    // Detect Primary Service sections
+    // ----------------------------------------------------
+
+    // Assumes services remain grouped under their
+    // corresponding Primary Service section.
+
+    if (descriptionLower === "reception") {
+
+      currentPrimaryService = "Reception";
+      currentGroupConfirmed = (confirmation === "yes");
+
+      return;
+
+    }
+
+
+    else if (descriptionLower === "loading") {
+
+      currentPrimaryService = "Loading";
+      currentGroupConfirmed = (confirmation === "yes");
+
+      return;
+
+    }
+
+    // Current Intermediate services act as section identifiers
+    // because there is no explicit "Intermediate" row
+    // in Operation Summary.
+
+    else if (
+      descriptionLower ===
+        "stock inspection / holding certificate" ||
+      descriptionLower ===
+        "sampling" ||
+      descriptionLower.startsWith("radiation") ||
+      descriptionLower.startsWith("bagging") ||
+      descriptionLower.startsWith("de-bagging")
+    ) {
+
+      currentPrimaryService = "Intermediate";
+      currentGroupConfirmed = (confirmation === "yes");
+
+    }
+
+    // Confirmation after detecyion
+    if (confirmation !== "yes") {
+      return;
+    }
+
+
+    if (!currentGroupConfirmed) {
+      return;
+    }
+    // ----------------------------------------------------
+    // Normal Secondary Services
+    // ----------------------------------------------------
+
+    const normalized =
+      normalizeSecondaryService(
+        descriptionRaw
+      );
+
+    if (
+      normalized &&
+      currentPrimaryService
+    ) {
+      services[
+        currentPrimaryService
+      ].add(normalized);
+    }
+
+  });
+
+  return services;
+
+}
 
